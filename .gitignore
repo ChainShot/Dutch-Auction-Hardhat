@@ -1,6 +1,10 @@
 node_modules
 .env
 
+# Parcel files
+.parcel-cache
+dist
+
 # Hardhat files
 cache
 artifacts

@@ -1,51 +1,112 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "./interfaces/IERC721.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+
+import "hardhat/console.sol";
+
+import "./Tulip.sol";
 
 contract DutchAuction {
-    event Buy(address winner, uint amount);
+    using Counters for Counters.Counter;
 
-    IERC721 public immutable nft;
-    uint public immutable nftId;
+    event List(uint indexed tokenId, uint indexed auctionId, uint indexed amount);
+    event Buy(uint indexed tokenId, uint indexed auctionId, address indexed buyer, uint amount);
 
-    address payable public seller;
-    uint public startingPrice;
-    uint public startAt;
-    uint public expiresAt;
-    uint public priceDeductionRate;
-    address public winner;
+    address public nftAddress;
 
-    constructor(
-        uint _startingPrice,
-        uint _priceDeductionRate,
-        address _nft,
-        uint _nftId
-    ) {
-        seller = payable(msg.sender);
-        startingPrice = _startingPrice;
-        startAt = block.timestamp;
-        expiresAt = block.timestamp + 7 days;
-        priceDeductionRate = _priceDeductionRate;
-
-        nft = IERC721(_nft);
-        nftId = _nftId;
+    struct Auction {
+        uint startingPrice;
+        uint priceDeductionRate;
+        uint startsAt;
+        uint endsAt;
+        bool sold;
     }
 
-    function buy() external payable {
-        require(block.timestamp < expiresAt, "auction expired");
-        require(winner == address(0), "auction finished");
+    // map NTF tokens ids to number of auctions for that token id
+    mapping(uint => Counters.Counter) private _numAuctionsForNFTToken;
 
-        uint timeElapsed = block.timestamp - startAt;
-        uint deduction = priceDeductionRate * timeElapsed;
-        uint price = startingPrice - deduction;
+    // map NFT token ids => auction ids => auction
+    mapping(uint => mapping(uint => Auction)) public auctions;
 
-        require(msg.value >= price, "ETH < price");
+    constructor(address _nftAddress) {
+        nftAddress = _nftAddress;
+    }
 
-        winner = msg.sender;
-        nft.transferFrom(seller, msg.sender, nftId);
-        seller.transfer(msg.value);
+    function numAuctionsForNFTToken(uint tokenId) public view returns (uint) {
+        return _numAuctionsForNFTToken[tokenId].current();
+    }
 
-        emit Buy(msg.sender, msg.value);
+    function list(uint tokenId, uint _startingPrice, uint _priceDeductionRate, uint _endsAt) external
+          isTokenOwner(tokenId, "Only token owner can list token.")
+          isNotActive(tokenId) {
+
+        uint auctionId = numAuctionsForNFTToken(tokenId);
+
+        auctions[tokenId][auctionId] = Auction({
+            startingPrice: _startingPrice,
+            priceDeductionRate: _priceDeductionRate,
+            startsAt: block.timestamp,
+            endsAt: block.timestamp + _endsAt * 1 minutes,
+            sold: false
+        });
+
+        _numAuctionsForNFTToken[tokenId].increment();
+
+        emit List(tokenId, auctionId, _startingPrice);
+    }
+
+    function buy(uint tokenId) external payable isActive(tokenId) {
+        require(msg.sender != Tulip(nftAddress).ownerOf(tokenId), "Buyer is already owner.");
+
+        uint auctionId = numAuctionsForNFTToken(tokenId) - 1;
+
+        uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startsAt;
+        uint deduction = auctions[tokenId][auctionId].priceDeductionRate * timeElapsed;
+        uint price = auctions[tokenId][auctionId].startingPrice - deduction;
+
+        require(msg.value >= price, "Item listing price not met.");
+
+        Tulip tulip = Tulip(nftAddress);
+
+        // does the precise order of the code below matter here? could there be any
+        // re-entrancy issues?
+        //
+        // remember the checks-effects pattern
+        auctions[tokenId][auctionId].sold = true;
+        payable(tulip.ownerOf(tokenId)).transfer(msg.value);
+        tulip.safeTransferFrom(tulip.ownerOf(tokenId), msg.sender, tokenId);
+
+        emit Buy(tokenId, auctionId, msg.sender, msg.value);
+    }
+
+    function isListingActive(uint tokenId) public view returns (bool) {
+        uint auctionIndex = numAuctionsForNFTToken(tokenId);
+
+        if (auctionIndex == 0) {
+            return false;
+        }
+
+        uint auctionId = auctionIndex - 1;
+
+        return !auctions[tokenId][auctionId].sold && block.timestamp < auctions[tokenId][auctionId].endsAt;
+    }
+
+    modifier isTokenOwner(uint tokenId, string memory errorMessage) {
+        require(msg.sender == Tulip(nftAddress).ownerOf(tokenId), errorMessage);
+        _;
+    }
+
+    modifier isActive(uint tokenId) {
+        require(isListingActive(tokenId), "No active auction for NFT token.");
+        _;
+    }
+
+    modifier isNotActive(uint tokenId) {
+        require(
+            !isListingActive(tokenId),
+            "Cannot create new auction for NFT token that is already in an active auction."
+        );
+        _;
     }
 }

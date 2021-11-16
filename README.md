@@ -6,10 +6,11 @@ This Dutch Auction Dapp is built with [Hardhat](https://hardhat.org/).
 
 There are three top-level folders:
 
-1. `/app` - contains the front-end application
-2. `/contracts` - contains the solidity contract
-3. `/scripts` - contains hardhat scripts
-4. `/tests` - contains tests for the solidity contract
+1. `./app` - contains the front-end application
+2. `./contracts` - contains the solidity contract
+5. `./nfts` - contains nft assets and metadata
+3. `./tasks` - contains hardhat tasks
+4. `./tests` - contains tests for the solidity contract
 
 ## Setup
 
