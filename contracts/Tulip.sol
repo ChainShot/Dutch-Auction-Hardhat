@@ -15,7 +15,7 @@ contract Tulip is ERC721URIStorage, Ownable {
 
     constructor() ERC721("Tulip", "TLP") {}
 
-    function mintNFT(address recipient, string memory tokenURI)
+    function mintNft(address recipient, string memory tokenURI)
         public onlyOwner
         returns (uint256)
     {

@@ -18,10 +18,10 @@ async function mintNftToken(nftContract, tokenOwnerAddress) {
   const Tulip = await ethers.getContractFactory('Tulip');
   const tulip = await Tulip.attach(nftContract.address);
 
-  const mintNFTTxn = await tulip.mintNFT(tokenOwnerAddress, TOKEN_URI);
-  const mintNFTTxnReceipt = await mintNFTTxn.wait();
+  const mintNftTxn = await tulip.mintNft(tokenOwnerAddress, TOKEN_URI);
+  const mintNftTxnReceipt = await mintNftTxn.wait();
 
-  const transferEvent = mintNFTTxnReceipt.events.find(
+  const transferEvent = mintNftTxnReceipt.events.find(
     (event) => event.event === 'Transfer'
   );
 

@@ -23,8 +23,8 @@ contract DutchAuction {
         bool sold;
     }
 
-    // map NTF tokens ids to number of auctions for that token id
-    mapping(uint => Counters.Counter) private _numAuctionsForNFTToken;
+    // map NFT tokens ids to number of auctions for that token id
+    mapping(uint => Counters.Counter) private _numAuctionsForNftToken;
 
     // map NFT token ids => auction ids => auction
     mapping(uint => mapping(uint => Auction)) public auctions;
@@ -33,15 +33,15 @@ contract DutchAuction {
         nftAddress = _nftAddress;
     }
 
-    function numAuctionsForNFTToken(uint tokenId) public view returns (uint) {
-        return _numAuctionsForNFTToken[tokenId].current();
+    function numAuctionsForNftToken(uint tokenId) public view returns (uint) {
+        return _numAuctionsForNftToken[tokenId].current();
     }
 
     function list(uint tokenId, uint _startingPrice, uint _priceDeductionRate, uint _endsAt) external
           isTokenOwner(tokenId, "Only token owner can list token.")
           isNotActive(tokenId) {
 
-        uint auctionId = numAuctionsForNFTToken(tokenId);
+        uint auctionId = numAuctionsForNftToken(tokenId);
 
         auctions[tokenId][auctionId] = Auction({
             startingPrice: _startingPrice,
@@ -51,7 +51,7 @@ contract DutchAuction {
             sold: false
         });
 
-        _numAuctionsForNFTToken[tokenId].increment();
+        _numAuctionsForNftToken[tokenId].increment();
 
         emit List(tokenId, auctionId, _startingPrice);
     }
@@ -59,7 +59,7 @@ contract DutchAuction {
     function buy(uint tokenId) external payable isActive(tokenId) {
         require(msg.sender != Tulip(nftAddress).ownerOf(tokenId), "Buyer is already owner.");
 
-        uint auctionId = numAuctionsForNFTToken(tokenId) - 1;
+        uint auctionId = numAuctionsForNftToken(tokenId) - 1;
 
         uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startsAt;
         uint deduction = auctions[tokenId][auctionId].priceDeductionRate * timeElapsed;
@@ -81,7 +81,7 @@ contract DutchAuction {
     }
 
     function isListingActive(uint tokenId) public view returns (bool) {
-        uint auctionIndex = numAuctionsForNFTToken(tokenId);
+        uint auctionIndex = numAuctionsForNftToken(tokenId);
 
         if (auctionIndex == 0) {
             return false;

@@ -7,44 +7,37 @@
     <div id="nft">
       <h1>NFT</h1>
 
-      <div id="nft-metadata-container">
-        <table id="nft-properties">
+      <div class="nft-metadata-container">
+        <table class="nft-properties">
           <tr>
             <th class="property">Name</th>
-            <td id="nft-name"></td>
+            <td class="nft-name"></td>
           </tr>
           <tr class="property">
             <th>Description</th>
-            <td id="nft-description"></td>
+            <td class="nft-description"></td>
           </tr>
           <tr>
             <th>Attributes</th>
           </tr>
         </table>
-        <table id="nft-attributes"></table>
+        <table class="nft-attributes"></table>
       </div>
 
-      <div id="nft-image-container"></div>
+      <div class="nft-image-container"></div>
+
+      <div class="nft-form-container">
+      </div>
     </div>
 
-    <div class="contract">
-      <h1>Dutch Auction</h1>
-      <label>
-        Arbiter Address
-        <input type="text" id="arbiter" />
-      </label>
+    <div id="nft-listings-container">
+      <div class="nft-active-listing-container">
+        <h1>Active Listing</h1>
+      </div>
 
-      <label>
-        Beneficiary Address
-        <input type="text" id="beneficiary" />
-      </label>
-
-      <label>
-        Deposit Amount (in Wei)
-        <input type="text" id="wei" />
-      </label>
-
-      <div class="button" id="deploy">Deploy</div>
+      <div class="nft-inactive-listings-container">
+        <h1>Previous Listings</h1>
+      </div>
     </div>
 
     <script src="./index.js" type="module"></script>

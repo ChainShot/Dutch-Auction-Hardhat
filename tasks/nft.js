@@ -2,9 +2,10 @@ require('dotenv').config();
 
 require('hardhat/config');
 
+const HARDHAT_LOCAL_NETWORK = 'localhost';
 const { PUBLIC_ADDR } = process.env;
 
-task('nft-deploy', 'Deploy NFT token contract', async (_, hre) => {
+task('deploy-nft', 'Deploy NFT token contract', async (_, hre) => {
   const NFT = await hre.ethers.getContractFactory('Tulip');
   const token = await NFT.deploy();
 
@@ -13,7 +14,7 @@ task('nft-deploy', 'Deploy NFT token contract', async (_, hre) => {
   console.log('NFT contract deployed to address: ', token.address);
 });
 
-task('nft-mint', 'Mint a NFT token')
+task('nft-mint', 'Mint an NFT token')
   .addParam(
     'nftAddress',
     'Address of the NFT contract address',
@@ -27,16 +28,21 @@ task('nft-mint', 'Mint a NFT token')
 
     console.log(`Connected to NFT contract at address = ${token.address}`);
 
-    const mintNFTTxn = await token.mintNFT(PUBLIC_ADDR, taskArgs.tokenUri);
-    await mintNFTTxn.wait();
+    const [signer] = await hre.ethers.getSigners();
 
-    const mintNFTTxnReceipt = await mintNFTTxn.wait();
+    const publicAddr =
+      hre.network.name === HARDHAT_LOCAL_NETWORK ? signer.address : PUBLIC_ADDR;
 
-    const transferEvent = mintNFTTxnReceipt.events.find(
+    const mintNftTxn = await token.mintNft(publicAddr, taskArgs.tokenUri);
+    await mintNftTxn.wait();
+
+    const mintNftTxnReceipt = await mintNftTxn.wait();
+
+    const transferEvent = mintNftTxnReceipt.events.find(
       (event) => event.event === 'Transfer'
     );
 
-    console.log(`Minted NFT via txn: ${mintNFTTxn.hash}`);
+    console.log(`Minted NFT via txn: ${mintNftTxn.hash}`);
     console.log(
       `NFT transferred => from: ${transferEvent.args[0]}, to: ${transferEvent.args[1]}, tokenId: ${transferEvent.args[2]}`
     );

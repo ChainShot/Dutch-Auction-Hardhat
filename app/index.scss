@@ -4,102 +4,78 @@ body {
   font-family: 'Muli', sans-serif;
 }
 
-.contract,
-.existing-contracts {
+#nft {
+  width: 40%;
+  min-width: 310px;
+
+  h1 {
+    padding-bottom: 10px;
+    border-bottom: 1px solid #999;
+  }
+
+  .nft-attributes {
+    margin-left: 20px;
+  }
+
+  th.property {
+    width: 50%;
+  }
+
+  th.attribute {
+    width: 21%;
+    vertical-align: top;
+  }
+
+  th,
+  td {
+    text-align: left;
+  }
+
+  .nft-image-container {
+    margin: 30px auto;
+
+    img {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      width: 300px;
+      height: 300px;
+    }
+  }
+
+  .nft-form-container {
+    .button {
+      background-color: #f58427;
+      color: white;
+      text-align: center;
+      font-weight: bold;
+      text-transform: uppercase;
+      border-radius: 15px;
+      margin: auto;
+      padding: 8px;
+      font-size: 14px;
+      letter-spacing: 1px;
+      width: 50%;
+      cursor: pointer;
+    }
+  }
+}
+
+#nft-listings-container {
   margin: 20px;
   width: 50%;
   padding: 40px;
   border: 1px solid #ddd;
-  background-color: #fff;
-}
+  background-color: #ddd;
 
-h1 {
-  margin: 10px;
-  padding: 10px;
-  border-bottom: 1px solid #eee;
-}
+  h1 {
+    padding-bottom: 10px;
+    border-bottom: 1px solid #aaa;
+  }
 
-label {
-  display: flex;
-  flex-direction: column;
-  text-transform: uppercase;
-  color: #aaa;
-  margin: 20px;
-}
+  .nft-active-listing-container {
+  }
 
-input[type='text'] {
-  padding: 6px;
-  font-size: 18px;
-}
-
-.button {
-  background-color: #f58427;
-  color: white;
-  text-align: center;
-  font-weight: bold;
-  text-transform: uppercase;
-  margin: 20px;
-  padding: 9px 25px;
-  font-size: 14px;
-  letter-spacing: 1px;
-  cursor: pointer;
-}
-
-.existing-contract ul {
-  padding: 10px;
-  margin: 20px;
-  background-color: #eee;
-}
-
-.existing-contract ul > li {
-  list-style: none;
-  display: flex;
-  margin: 10px;
-}
-
-.existing-contract ul > li > div {
-  margin: 0 5px;
-}
-
-.existing-contract ul > li > :first-child {
-  font-weight: bold;
-}
-
-.existing-contract .complete {
-  color: #5aa75a;
-  text-align: center;
-}
-
-th.property {
-  width: 50%;
-}
-
-th.attribute {
-  width: 21%;
-  vertical-align: top;
-}
-
-th,
-td {
-  text-align: left;
-}
-
-#nft {
-  width: 40%;
-}
-
-#nft-attributes {
-  margin-left: 20px;
-}
-
-#nft-image-container {
-  margin-left: 15%;
-  margin-top: 20px;
-  width: 60%;
-  height: 40%;
-}
-
-img {
-  width: 100%;
-  height: 100%;
+  .nft-inactive-listings-container {
+  }
 }

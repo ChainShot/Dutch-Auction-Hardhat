@@ -77,7 +77,7 @@ describe('DutchAuction', function () {
 
       // expect there are 0 auctions for a freshly minted NFT token
       expect(
-        await dutchAuctionContract.numAuctionsForNFTToken(nftTokenId)
+        await dutchAuctionContract.numAuctionsForNftToken(nftTokenId)
       ).to.equal(auctionId);
 
       const listingTxn = await dutchAuctionContract.list(
@@ -106,7 +106,7 @@ describe('DutchAuction', function () {
 
       // after listing, expect there is 1 auction for a freshly minted NFT token
       expect(
-        await dutchAuctionContract.numAuctionsForNFTToken(nftTokenId)
+        await dutchAuctionContract.numAuctionsForNftToken(nftTokenId)
       ).to.equal(auctionId.add(1n));
     });
 
@@ -181,7 +181,7 @@ describe('DutchAuction', function () {
       );
 
       const auctionId =
-        (await dutchAuctionContract.numAuctionsForNFTToken(nftTokenId)) - 1;
+        (await dutchAuctionContract.numAuctionsForNftToken(nftTokenId)) - 1;
 
       // connect to the Dutch Auction contract as a buyer
       dutchAuctionContract = await dutchAuctionContract.connect(tokenBuyer);
@@ -213,7 +213,7 @@ describe('DutchAuction', function () {
       );
 
       const auctionId =
-        (await dutchAuctionContract.numAuctionsForNFTToken(nftTokenId)) - 1;
+        (await dutchAuctionContract.numAuctionsForNftToken(nftTokenId)) - 1;
 
       // connect to the Dutch Auction contract as a buyer
       dutchAuctionContract = await dutchAuctionContract.connect(tokenBuyer);
