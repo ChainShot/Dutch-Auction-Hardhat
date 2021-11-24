@@ -1,31 +1,37 @@
 import axios from 'axios';
 import { ethers } from 'ethers';
 
-import DutchAuctionArtifact from './artifacts/contracts/DutchAuction.sol/DutchAuction';
-import NFTArtifact from './artifacts/contracts/Tulip.sol/Tulip';
+import {
+  renderNftToken,
+  renderNftTokenForm,
+  renderNftTokenListings,
+} from './render';
 
 import './index.scss';
 
-const DUTCH_AUCTION_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
-const NFT_TOKEN_ID = 1;
-const NFT_TOKEN_METADATA_URI =
-  'https://gateway.pinata.cloud/ipfs/QmSvsqbgUe5smqdgtyPGhfF2Xcahr2kDkNr1PT8hJ7REA6';
+import DutchAuctionArtifact from './artifacts/contracts/DutchAuction.sol/DutchAuction';
+import NFTArtifact from './artifacts/contracts/Tulip.sol/Tulip';
+
+const DUTCH_AUCTION_CONTRACT_ADDR = process.env.DUTCH_AUCTION_CONTRACT_ADDR;
+const NFT_TOKEN_METADATA_URI = process.env.NFT_TOKEN_METADATA_URI;
+const NFT_TOKEN_ID = process.env.NFT_TOKEN_ID;
 
 const provider = new ethers.providers.Web3Provider(ethereum);
 const signer = provider.getSigner();
 
-async function getDutchAuctionContract() {
+async function getDutchAuctionContract(dutchAuctionContractAddr) {
   const DutchAuction = new ethers.ContractFactory(
     DutchAuctionArtifact.abi,
     DutchAuctionArtifact.bytecode,
     signer
   );
 
-  return await DutchAuction.attach(DUTCH_AUCTION_ADDRESS);
+  return await DutchAuction.attach(dutchAuctionContractAddr);
 }
 
 async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
-  return await dutchAuctionContract.numAuctionsForNftToken(nftTokenId);
+  const numAuctionsForNftToken =
+    await dutchAuctionContract.numAuctionsForNftToken(nftTokenId);
 }
 
 async function getNftContract(nftContractAddress) {
@@ -40,116 +46,67 @@ async function getNftContract(nftContractAddress) {
   return await NFT.attach(nftContractAddress);
 }
 
-async function getNftTokenMetadata() {
-  return (await axios.get(NFT_TOKEN_METADATA_URI)).data;
+async function getNftTokenMetadata(nftTokenMetadataUri) {
+  return (await axios.get(nftTokenMetadataUri)).data;
 }
 
-function renderNftToken(nftMetadata) {
-  document.getElementsByClassName('nft-name')[0].innerHTML = nftMetadata.name;
-  document.getElementsByClassName('nft-description')[0].innerHTML =
-    nftMetadata.description;
-
-  const nftAttributes = document.getElementsByClassName('nft-attributes')[0];
-
-  nftMetadata.attributes.forEach((attribute) => {
-    const attributeRow = document.createElement('tr');
-    attributeRow.innerHTML = `<th class="attribute">${attribute.attributeType}</th><td>${attribute.value}</td>`;
-    nftAttributes.appendChild(attributeRow);
-  });
-
-  const nftImageContainer = document.getElementsByClassName(
-    'nft-image-container'
-  )[0];
-
-  const nftImage = document.createElement('img');
-  nftImage.src = nftMetadata.image;
-
-  nftImageContainer.appendChild(nftImage);
+async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
+  return [
+    (await ethereum.request({ method: 'eth_requestAccounts' }))[0],
+    await nftContract.ownerOf(nftTokenId),
+    await nftContract.getApproved(nftTokenId),
+    dutchAuctionContract.address,
+  ].map((addr) => addr.toLowerCase());
 }
 
-function renderNftTokenListingForm(
-  metamaskAccountAddr,
-  tokenOwnerAddr,
-  needsApproval
-) {
-  const nftFormContainer =
-    document.getElementsByClassName('nft-form-container')[0];
+(async function (dutchAuctionContractAddr, nftTokenMetadataUri, nftTokenId) {
+  const dutchAuctionContract = await getDutchAuctionContract(
+    dutchAuctionContractAddr
+  );
 
-  if (needsApproval && metamaskAccountAddr === tokenOwnerAddr) {
-    const nftApproveButton = document.createElement('div');
-
-    nftApproveButton.innerHTML = 'Approve NFT Token for Listing';
-    nftApproveButton.classList.add('button', 'approve-button');
-
-    nftFormContainer.appendChild(nftApproveButton);
-  }
-}
-
-function renderActiveNftListing(nftTokenId, nftTokenListing) {
-  if (typeof nftTokenListing === 'undefined') {
-    const nftActiveListingContainer = document.getElementsByClassName(
-      'nft-active-listing-container'
-    )[0];
-
-    const nftActiveListing = document.createElement('div');
-    nftActiveListing.innerHTML = '<h3><em>None</em></h3>';
-    nftActiveListingContainer.appendChild(nftActiveListing);
-
-    return;
-  }
-}
-
-function renderInactiveNftListings(nftTokenId, nftTokenListings) {
-  if (
-    typeof nftTokenListings === 'undefined' ||
-    nftTokenListings.length === 0
-  ) {
-    const nftInactiveListingsContainer = document.getElementsByClassName(
-      'nft-inactive-listings-container'
-    )[0];
-
-    const nftInactiveListing = document.createElement('div');
-    nftInactiveListing.innerHTML = '<h3><em>None</em></h3>';
-    nftInactiveListingsContainer.appendChild(nftInactiveListing);
-
-    return;
-  }
-}
-
-function renderNftTokenListings(nftTokenId, nftTokenListings) {
-  renderActiveNftListing(nftTokenId, undefined);
-  renderInactiveNftListings(nftTokenId, []);
-}
-
-let metamaskAccountAddr;
-
-(async function () {
-  metamaskAccountAddr = (
-    await ethereum.request({ method: 'eth_requestAccounts' })
-  )[0];
-
-  const dutchAuctionContract = await getDutchAuctionContract();
   const nftContract = await getNftContract(
     await dutchAuctionContract.nftAddress()
   );
 
-  const nftTokenMetadata = await getNftTokenMetadata();
+  const nftTokenMetadata = await getNftTokenMetadata(nftTokenMetadataUri);
 
   const nftTokenListings = await getNftTokenListings(
     dutchAuctionContract,
-    NFT_TOKEN_ID
+    nftTokenId
   );
 
-  const tokenOwnerAddr = await nftContract.ownerOf(NFT_TOKEN_ID);
+  const [
+    metamaskAccountAddr,
+    tokenOwnerAddr,
+    tokenApprovedForAddr,
+    dutchAuctionContractAddress,
+  ] = await getAddresses(nftContract, nftTokenId, dutchAuctionContract);
 
-  const needsApproval =
-    (await nftContract.getApproved(NFT_TOKEN_ID)) !==
-    dutchAuctionContract.address;
+  const metamaskAccountBalance = await provider.getBalance(metamaskAccountAddr);
 
-  renderNftToken(nftTokenMetadata, metamaskAccountAddr, tokenOwnerAddr);
-  renderNftTokenListingForm(metamaskAccountAddr, tokenOwnerAddr, needsApproval);
+  const needsApproval = tokenApprovedForAddr !== dutchAuctionContractAddress;
 
-  renderNftTokenListings(NFT_TOKEN_ID, nftTokenListings);
+  const isListingActive = await dutchAuctionContract.isListingActive(
+    nftTokenId
+  );
+
+  renderNftToken(nftTokenMetadata);
+
+  const listingPrice = ethers.utils.parseEther('2000000');
+
+  renderNftTokenForm(
+    nftContract,
+    nftTokenId,
+    dutchAuctionContract,
+    metamaskAccountAddr,
+    metamaskAccountBalance,
+    tokenOwnerAddr,
+    needsApproval,
+    isListingActive,
+    listingPrice
+  );
+
+  renderNftTokenListings(nftTokenId, nftTokenListings);
 
   console.log(`account = ${JSON.stringify(metamaskAccountAddr)}`);
   console.log(`dutchAuctionContract.address = ${dutchAuctionContract.address}`);
@@ -158,5 +115,5 @@ let metamaskAccountAddr;
     `nftTokenMetadata = ${JSON.stringify(nftTokenMetadata, undefined, 2)}`
   );
 
-  console.log(`Owner of token id '${NFT_TOKEN_ID}' = ${tokenOwnerAddr}`);
-})();
+  console.log(`Owner of token id '${nftTokenId}' = ${tokenOwnerAddr}`);
+})(DUTCH_AUCTION_CONTRACT_ADDR, NFT_TOKEN_METADATA_URI, NFT_TOKEN_ID);

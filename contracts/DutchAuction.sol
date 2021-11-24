@@ -69,10 +69,12 @@ contract DutchAuction {
 
         Tulip tulip = Tulip(nftAddress);
 
+        //
         // does the precise order of the code below matter here? could there be any
         // re-entrancy issues?
         //
         // remember the checks-effects pattern
+        //
         auctions[tokenId][auctionId].sold = true;
         payable(tulip.ownerOf(tokenId)).transfer(msg.value);
         tulip.safeTransferFrom(tulip.ownerOf(tokenId), msg.sender, tokenId);
