@@ -18,7 +18,7 @@ describe('DutchAuction', function () {
 
   const startingPrice = 10n;
   const priceDeductionRate = 1n;
-  const endsAt = 1n; // units are minutes from 'now'
+  const endDate = 1n; // units are minutes from 'now'
   const duration = 60n; // 60 seconds
 
   before(async function () {
@@ -84,7 +84,7 @@ describe('DutchAuction', function () {
         nftTokenId,
         startingPrice,
         priceDeductionRate,
-        endsAt
+        endDate
       );
 
       const auction = await dutchAuctionContract.auctions(
@@ -92,12 +92,14 @@ describe('DutchAuction', function () {
         auctionId
       );
 
-      const expectedStartsAt = (await ethers.provider.getBlock()).timestamp;
+      const expectedStartDate = (await ethers.provider.getBlock()).timestamp;
 
       expect(auction.startingPrice).to.equal(startingPrice);
       expect(auction.priceDeductionRate).to.equal(priceDeductionRate);
-      expect(auction.startsAt).to.equal(expectedStartsAt);
-      expect(auction.endsAt.sub(auction.startsAt)).to.equal(duration);
+      expect(auction.startDate).to.equal(expectedStartDate);
+      expect(auction.endDate.sub(auction.startDate)).to.equal(duration);
+      expect(auction.soldDate).to.equal(0n);
+      expect(auction.soldPrice).to.equal(0n);
       expect(auction.sold).to.be.false;
 
       await expect(listingTxn)
@@ -119,7 +121,7 @@ describe('DutchAuction', function () {
           nftTokenId,
           startingPrice,
           priceDeductionRate,
-          endsAt
+          endDate
         )
       ).to.be.revertedWith('Only token owner can list token.');
     });
@@ -132,7 +134,7 @@ describe('DutchAuction', function () {
         nftTokenId,
         startingPrice,
         priceDeductionRate,
-        endsAt
+        endDate
       );
 
       await expect(
@@ -140,7 +142,7 @@ describe('DutchAuction', function () {
           nftTokenId,
           startingPrice,
           priceDeductionRate,
-          endsAt
+          endDate
         )
       ).to.be.revertedWith(
         'Cannot create new auction for NFT token that is already in an active auction.'
@@ -149,6 +151,8 @@ describe('DutchAuction', function () {
   });
 
   describe('buy', function () {
+    let auctionId;
+
     // setup NFT contract and for all Dutch Auction contract tests
     before(async function () {
       dutchAuctionContract = await deployDutchAuction();
@@ -170,19 +174,19 @@ describe('DutchAuction', function () {
       // approve the Dutch Auction contract to transfer the NFT token on the owner's behalf
       const contract = await nftContract.connect(tokenOwner);
       contract.approve(dutchAuctionContract.address, nftTokenId);
-    });
 
-    it('should buy an actively listed NFT token correctly', async function () {
       await dutchAuctionContract.list(
         nftTokenId,
         startingPrice,
         priceDeductionRate,
-        endsAt
+        endDate
       );
 
-      const auctionId =
+      auctionId =
         (await dutchAuctionContract.numAuctionsForNftToken(nftTokenId)) - 1;
+    });
 
+    it('should buy an actively listed NFT token correctly', async function () {
       // connect to the Dutch Auction contract as a buyer
       dutchAuctionContract = await dutchAuctionContract.connect(tokenBuyer);
 
@@ -204,16 +208,6 @@ describe('DutchAuction', function () {
     it('should fail buying an NFT token listing when price is not met', async function () {
       // connect to the Dutch Auction contract as the token owner
       dutchAuctionContract = await dutchAuctionContract.connect(tokenOwner);
-
-      await dutchAuctionContract.list(
-        nftTokenId,
-        startingPrice,
-        priceDeductionRate,
-        endsAt
-      );
-
-      const auctionId =
-        (await dutchAuctionContract.numAuctionsForNftToken(nftTokenId)) - 1;
 
       // connect to the Dutch Auction contract as a buyer
       dutchAuctionContract = await dutchAuctionContract.connect(tokenBuyer);

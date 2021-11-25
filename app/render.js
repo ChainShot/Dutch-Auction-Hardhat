@@ -1,3 +1,5 @@
+import { start } from 'repl';
+
 export function renderNftToken(nftMetadata) {
   document.getElementsByClassName('nft-name')[0].innerHTML = nftMetadata.name;
   document.getElementsByClassName('nft-description')[0].innerHTML =
@@ -21,11 +23,12 @@ export function renderNftToken(nftMetadata) {
   nftImageContainer.appendChild(nftImage);
 }
 
-function renderNftTokenListingApprovalButton(
+function renderNftTokenListingApprovalButton({
   nftContract,
   dutchAuctionContract,
-  nftTokenId
-) {
+  nftTokenId,
+  nftFormContainer,
+}) {
   const nftApproveButton = document.createElement('div');
 
   nftApproveButton.innerHTML = 'Approve NFT Token for Listing';
@@ -38,21 +41,22 @@ function renderNftTokenListingApprovalButton(
   nftFormContainer.appendChild(nftApproveButton);
 }
 
-function renderForTokenOwner(
+function renderForTokenOwner({
   needsApproval,
   nftContract,
   dutchAuctionContract,
   nftTokenId,
-  isListingActive,
-  nftFormContainer
-) {
+  nftTokenActiveListing,
+  nftFormContainer,
+}) {
   if (needsApproval) {
-    renderNftTokenListingApprovalButton(
+    renderNftTokenListingApprovalButton({
       nftContract,
       dutchAuctionContract,
-      nftTokenId
-    );
-  } else if (!isListingActive) {
+      nftTokenId,
+      nftFormContainer,
+    });
+  } else if (typeof nftTokenActiveListing === 'undefined') {
     const nftListButton = document.createElement('div');
 
     nftListButton.innerHTML = 'List NFT Token';
@@ -66,36 +70,37 @@ function renderForTokenOwner(
   }
 }
 
-function renderForTokenBuyer(
+function renderForTokenBuyer({
   dutchAuctionContract,
   nftTokenId,
-  isListingActive,
-  listingPrice,
+  nftTokenActiveListing,
   metamaskAccountBalance,
-  nftFormContainer
-) {
-  if (!isListingActive) {
+  nftFormContainer,
+}) {
+  if (typeof nftTokenActiveListing === 'undefined') {
     return;
   }
 
   const nftBuyButton = document.createElement('div');
   nftBuyButton.innerHTML = 'Buy NFT Token';
 
-  if (metamaskAccountBalance.gte(listingPrice)) {
-    console.log(`here`);
+  if (metamaskAccountBalance.gte(nftTokenActiveListing.currentPrice)) {
     nftBuyButton.classList.add('button', 'buy-button');
 
     nftBuyButton.addEventListener('click', () => {
       const overrides = {
-        value: listingPrice,
+        value: nftTokenActiveListing.currentPrice,
       };
+
+      console.log(
+        `nftTokenActiveListing.currentPrice = ${nftTokenActiveListing.currentPrice.toString()}`
+      );
 
       dutchAuctionContract.buy(nftTokenId, overrides);
     });
 
     nftFormContainer.appendChild(nftBuyButton);
   } else {
-    console.log(`there`);
     nftBuyButton.classList.add('button', 'disabled-buy-button');
     nftFormContainer.appendChild(nftBuyButton);
 
@@ -108,7 +113,7 @@ function renderForTokenBuyer(
   }
 }
 
-export function renderNftTokenForm(
+export function renderNftTokenForm({
   nftContract,
   nftTokenId,
   dutchAuctionContract,
@@ -116,65 +121,144 @@ export function renderNftTokenForm(
   metamaskAccountBalance,
   tokenOwnerAddr,
   needsApproval,
-  isListingActive,
-  listingPrice
-) {
+  nftTokenActiveListing,
+}) {
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
 
+  renderActiveNftListing(nftTokenActiveListing, nftFormContainer);
+
   if (metamaskAccountAddr === tokenOwnerAddr) {
-    renderForTokenOwner(
+    renderForTokenOwner({
       needsApproval,
       nftContract,
       dutchAuctionContract,
       nftTokenId,
-      isListingActive,
-      nftFormContainer
-    );
+      nftTokenActiveListing,
+      nftFormContainer,
+    });
   } else {
-    renderForTokenBuyer(
+    renderForTokenBuyer({
       dutchAuctionContract,
       nftTokenId,
-      isListingActive,
-      listingPrice,
+      nftTokenActiveListing,
       metamaskAccountBalance,
-      nftFormContainer
-    );
+      nftFormContainer,
+    });
   }
 }
 
-function renderActiveNftListing(nftTokenId, nftTokenListing) {
-  if (typeof nftTokenListing === 'undefined') {
-    const nftActiveListingContainer = document.getElementsByClassName(
-      'nft-active-listing-container'
-    )[0];
-
-    const nftActiveListing = document.createElement('div');
-    nftActiveListing.innerHTML = '<h3><em>None</em></h3>';
-    nftActiveListingContainer.appendChild(nftActiveListing);
-
+function renderActiveNftListing(nftTokenActiveListing) {
+  if (typeof nftTokenActiveListing === 'undefined') {
     return;
   }
+
+  const nftFormContainer =
+    document.getElementsByClassName('nft-form-container')[0];
+
+  const containerHeader = document.createElement('h3');
+  containerHeader.classList.add('active-listing-header');
+  containerHeader.innerHTML = 'Active Listing';
+
+  nftFormContainer.appendChild(containerHeader);
+
+  const nftActiveListingContainer = document.createElement('div');
+  nftActiveListingContainer.classList.add('nft-active-listing-table-container');
+
+  const nftActiveListingTable = document.createElement('table');
+  nftActiveListingTable.classList.add('nft-active-listing-table');
+
+  const listingId = nftTokenActiveListing.listingId;
+  const price = nftTokenActiveListing.currentPrice.toString();
+  const startDate =
+    nftTokenActiveListing.startDate.toISOString().split('.')[0] + 'Z';
+  const endDate =
+    nftTokenActiveListing.endDate.toISOString().split('.')[0] + 'Z';
+
+  let innerHTML =
+    `<tr><th>Listing Id</th><th>Price</th><th>Start Date</th><th>End Date</th></tr>` +
+    `<tr><td>${listingId}</td><td>${price}</td><td>${startDate}</td><td>${endDate}</td></tr>`;
+
+  nftActiveListingTable.innerHTML = innerHTML;
+
+  nftActiveListingContainer.appendChild(nftActiveListingTable);
+  nftFormContainer.appendChild(nftActiveListingContainer);
 }
 
-function renderInactiveNftListings(nftTokenId, nftTokenListings) {
+function renderPreviousNftListings(nftTokenListings) {
+  const nftPreviousListingsContainer = document.getElementsByClassName(
+    'nft-previous-listings-container'
+  )[0];
+
   if (
     typeof nftTokenListings === 'undefined' ||
     nftTokenListings.length === 0
   ) {
-    const nftInactiveListingsContainer = document.getElementsByClassName(
-      'nft-inactive-listings-container'
-    )[0];
-
-    const nftInactiveListing = document.createElement('div');
-    nftInactiveListing.innerHTML = '<h3><em>None</em></h3>';
-    nftInactiveListingsContainer.appendChild(nftInactiveListing);
+    const nftPreviousListings = document.createElement('div');
+    nftPreviousListings.innerHTML = '<h3><em>None</em></h3>';
+    nftPreviousListingsContainer.appendChild(nftPreviousListings);
 
     return;
   }
+
+  const nftPreviousListingsTableContainer = document.createElement('div');
+  nftPreviousListingsTableContainer.classList.add(
+    'nft-previous-listings-table-container'
+  );
+
+  const nftPreviousListingsTable = document.createElement('table');
+  nftPreviousListingsTable.classList.add('nft-previous-listings-table');
+
+  let innerHTML = `<tr><th>Listing Id</th><th>Start Price</th><th>Start Date</th><th>End Date</th><th>Sold</th><th>Sold Date</th><th>Sold Price</th></tr>`;
+
+  nftTokenListings.forEach((nftTokenListing) => {
+    const listingId = nftTokenListing.listingId;
+    const startPrice = nftTokenListing.startPrice.toString();
+    const startDate =
+      nftTokenListing.startDate.toISOString().split('.')[0] + 'Z';
+    const endDate = nftTokenListing.endDate.toISOString().split('.')[0] + 'Z';
+    const sold = nftTokenListing.sold;
+    const soldDate = nftTokenListing.soldDate.toISOString().split('.')[0] + 'Z';
+    const soldPrice = nftTokenListing.soldPrice.toString();
+
+    innerHTML += `<tr><td>${listingId}</td><td>${startPrice}</td><td>${startDate}</td><td>${endDate}</td><td>${sold}</td><td>${soldDate}</td><td>${soldPrice}</td></tr>`;
+  });
+
+  nftPreviousListingsTable.innerHTML = innerHTML;
+
+  // nftTokenListings.forEach((nftTokenListing) => {});
+
+  // const startDate =
+  //   nftTokenActiveListing.startDate.toISOString().split('.')[0] + 'Z';
+  // const endDate =
+  //   nftTokenActiveListing.endDate.toISOString().split('.')[0] + 'Z';
+  // const price = nftTokenActiveListing.currentPrice.toString();
+  // const listingId = nftTokenActiveListing.listingId;
+
+  // let innerHTML =
+  //   `<tr><th>Listing Id</th><th>Price</th><th>Start Date</th><th>End Date</th></tr>` +
+  //   `<tr><td>${listingId}</td><td>${price}</td><td>${startDate}</td><td>${endDate}</td></tr>`;
+
+  // nftActiveListingTable.innerHTML = innerHTML;
+
+  nftPreviousListingsTableContainer.appendChild(nftPreviousListingsTable);
+  nftPreviousListingsContainer.appendChild(nftPreviousListingsTableContainer);
 }
 
-export function renderNftTokenListings(nftTokenId, nftTokenListings) {
-  renderActiveNftListing(nftTokenId, undefined);
-  renderInactiveNftListings(nftTokenId, []);
+export function renderNftTokenListings(
+  nftTokenActiveListing,
+  nftTokenListings
+) {
+  console.log(
+    `nftTokenListings = ${JSON.stringify(nftTokenListings, undefined, 2)}`
+  );
+  console.log(
+    `nftTokenActiveListing = ${JSON.stringify(
+      nftTokenActiveListing,
+      undefined,
+      2
+    )}`
+  );
+
+  renderPreviousNftListings(nftTokenListings);
 }

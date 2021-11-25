@@ -18,9 +18,11 @@ contract DutchAuction {
     struct Auction {
         uint startingPrice;
         uint priceDeductionRate;
-        uint startsAt;
-        uint endsAt;
+        uint startDate;
+        uint endDate;
         bool sold;
+        uint soldPrice;
+        uint soldDate;
     }
 
     // map NFT tokens ids to number of auctions for that token id
@@ -33,11 +35,15 @@ contract DutchAuction {
         nftAddress = _nftAddress;
     }
 
+    function getAuction(uint tokenId, uint auctionId) public view returns (Auction memory) {
+        return auctions[tokenId][auctionId];
+    }
+
     function numAuctionsForNftToken(uint tokenId) public view returns (uint) {
         return _numAuctionsForNftToken[tokenId].current();
     }
 
-    function list(uint tokenId, uint _startingPrice, uint _priceDeductionRate, uint _endsAt) external
+    function list(uint tokenId, uint _startingPrice, uint _priceDeductionRate, uint _endDate) external
           isTokenOwner(tokenId, "Only token owner can list token.")
           isNotActive(tokenId) {
 
@@ -46,8 +52,10 @@ contract DutchAuction {
         auctions[tokenId][auctionId] = Auction({
             startingPrice: _startingPrice,
             priceDeductionRate: _priceDeductionRate,
-            startsAt: block.timestamp,
-            endsAt: block.timestamp + _endsAt * 1 minutes,
+            startDate: block.timestamp,
+            endDate: block.timestamp + _endDate * 1 minutes,
+            soldDate: 0,
+            soldPrice: 0,
             sold: false
         });
 
@@ -56,14 +64,26 @@ contract DutchAuction {
         emit List(tokenId, auctionId, _startingPrice);
     }
 
+    function currentPrice(uint tokenId) public view returns(uint) {
+        uint auctionId = numAuctionsForNftToken(tokenId) - 1;
+        require(auctionId >= 0, "NFT token never listed");
+
+        uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startDate;
+        uint deduction = auctions[tokenId][auctionId].priceDeductionRate * timeElapsed;
+        uint startingPrice = auctions[tokenId][auctionId].startingPrice;
+
+        if (deduction > startingPrice) {
+            return 0;
+        }
+
+        return startingPrice - deduction;
+    } 
+
     function buy(uint tokenId) external payable isActive(tokenId) {
         require(msg.sender != Tulip(nftAddress).ownerOf(tokenId), "Buyer is already owner.");
 
         uint auctionId = numAuctionsForNftToken(tokenId) - 1;
-
-        uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startsAt;
-        uint deduction = auctions[tokenId][auctionId].priceDeductionRate * timeElapsed;
-        uint price = auctions[tokenId][auctionId].startingPrice - deduction;
+        uint price = currentPrice(tokenId);
 
         require(msg.value >= price, "Item listing price not met.");
 
@@ -75,7 +95,10 @@ contract DutchAuction {
         //
         // remember the checks-effects pattern
         //
+        auctions[tokenId][auctionId].soldPrice = msg.value;
+        auctions[tokenId][auctionId].soldDate = block.timestamp;
         auctions[tokenId][auctionId].sold = true;
+        
         payable(tulip.ownerOf(tokenId)).transfer(msg.value);
         tulip.safeTransferFrom(tulip.ownerOf(tokenId), msg.sender, tokenId);
 
@@ -91,7 +114,7 @@ contract DutchAuction {
 
         uint auctionId = auctionIndex - 1;
 
-        return !auctions[tokenId][auctionId].sold && block.timestamp < auctions[tokenId][auctionId].endsAt;
+        return !auctions[tokenId][auctionId].sold && block.timestamp < auctions[tokenId][auctionId].endDate;
     }
 
     modifier isTokenOwner(uint tokenId, string memory errorMessage) {

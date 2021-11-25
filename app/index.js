@@ -32,6 +32,63 @@ async function getDutchAuctionContract(dutchAuctionContractAddr) {
 async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
   const numAuctionsForNftToken =
     await dutchAuctionContract.numAuctionsForNftToken(nftTokenId);
+
+  console.log(`numAuctionsForNftToken = ${numAuctionsForNftToken.toString()}`);
+
+  const nftTokenListingsPromises = [];
+
+  for (let i = 0; i < numAuctionsForNftToken.toNumber(); i++) {
+    // TODO calling the public auctions() accessor fails for the token buyer, but works
+    // for the token owner. By creating a separate getAuction() function, things work
+    // for both. I have no idea why.
+
+    // nftTokenListingsPromises.push(
+    //   dutchAuctionContract.auctions(nftTokenId, ethers.BigNumber.from(i))
+    // );
+
+    nftTokenListingsPromises.push(
+      dutchAuctionContract.getAuction(nftTokenId, ethers.BigNumber.from(i))
+    );
+  }
+
+  const nftTokenListings = await Promise.all(nftTokenListingsPromises);
+
+  console.log(
+    `nftTokenListings = ${JSON.stringify(nftTokenListings, undefined, 2)}`
+  );
+
+  return nftTokenListings.map((nftTokenListing, index) => {
+    return {
+      listingId: index,
+      startPrice: nftTokenListing.startingPrice.toString(),
+      startDate: new Date(nftTokenListing.startDate.toNumber() * 1000),
+      endDate: new Date(nftTokenListing.endDate.toNumber() * 1000),
+      soldPrice: nftTokenListing.soldPrice.toString(),
+      soldDate: new Date(nftTokenListing.soldDate.toNumber() * 1000),
+      sold: nftTokenListing.sold,
+    };
+  });
+}
+
+async function getNftTokenActiveListing(
+  dutchAuctionContract,
+  nftTokenId,
+  nftTokenListings
+) {
+  const isListingActive = await dutchAuctionContract.isListingActive(
+    nftTokenId
+  );
+
+  if (!isListingActive) {
+    return undefined;
+  }
+
+  const activeListing = nftTokenListings[nftTokenListings.length - 1];
+  activeListing.currentPrice = await dutchAuctionContract.currentPrice(
+    nftTokenId
+  );
+
+  return activeListing;
 }
 
 async function getNftContract(nftContractAddress) {
@@ -59,6 +116,9 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
   ].map((addr) => addr.toLowerCase());
 }
 
+////////////////////////////////////////////
+////////////////////////////////////////////
+
 (async function (dutchAuctionContractAddr, nftTokenMetadataUri, nftTokenId) {
   const dutchAuctionContract = await getDutchAuctionContract(
     dutchAuctionContractAddr
@@ -75,6 +135,22 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
     nftTokenId
   );
 
+  console.log(
+    `2: nftTokenListings = ${JSON.stringify(nftTokenListings, undefined, 2)}`
+  );
+
+  const nftTokenActiveListing = await getNftTokenActiveListing(
+    dutchAuctionContract,
+    nftTokenId,
+    nftTokenListings
+  );
+
+  // if an NFT token has an active listing, it is always the last listing in the array,
+  // so we remove it from the listings array
+  if (typeof nftTokenActiveListing !== undefined) {
+    nftTokenListings.splice(-1);
+  }
+
   const [
     metamaskAccountAddr,
     tokenOwnerAddr,
@@ -86,15 +162,9 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
 
   const needsApproval = tokenApprovedForAddr !== dutchAuctionContractAddress;
 
-  const isListingActive = await dutchAuctionContract.isListingActive(
-    nftTokenId
-  );
-
   renderNftToken(nftTokenMetadata);
 
-  const listingPrice = ethers.utils.parseEther('2000000');
-
-  renderNftTokenForm(
+  renderNftTokenForm({
     nftContract,
     nftTokenId,
     dutchAuctionContract,
@@ -102,11 +172,10 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
     metamaskAccountBalance,
     tokenOwnerAddr,
     needsApproval,
-    isListingActive,
-    listingPrice
-  );
+    nftTokenActiveListing,
+  });
 
-  renderNftTokenListings(nftTokenId, nftTokenListings);
+  renderNftTokenListings(nftTokenActiveListing, nftTokenListings);
 
   console.log(`account = ${JSON.stringify(metamaskAccountAddr)}`);
   console.log(`dutchAuctionContract.address = ${dutchAuctionContract.address}`);
