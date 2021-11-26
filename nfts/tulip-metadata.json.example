@@ -10,6 +10,6 @@
     }
   ],
   "description": "A tulip; none other!",
-  "image": "https://gateway.pinata.cloud/ipfs/QmaPoCHH7Cfocf1J7FhVsrZsRucyZZGK9wGaKgcWXwXtsZ",
+  "image": "https://gateway.pinata.cloud/ipfs/<CID>",
   "name": "Tulip"
 }

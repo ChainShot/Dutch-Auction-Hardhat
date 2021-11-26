@@ -16,8 +16,8 @@ contract DutchAuction {
     address public nftAddress;
 
     struct Auction {
-        uint startingPrice;
-        uint priceDeductionRate;
+        uint startPrice;
+        uint priceReductionRate;
         uint startDate;
         uint endDate;
         bool sold;
@@ -36,6 +36,13 @@ contract DutchAuction {
     }
 
     function getAuction(uint tokenId, uint auctionId) public view returns (Auction memory) {
+        console.log("sold:");
+        console.logBool(auctions[tokenId][auctionId].sold);
+        console.log("block.timestamp:");
+        console.logUint(block.timestamp);
+        console.log("auctions[tokenId][auctionId].endDate:");
+        console.logUint(auctions[tokenId][auctionId].endDate);
+
         return auctions[tokenId][auctionId];
     }
 
@@ -43,15 +50,15 @@ contract DutchAuction {
         return _numAuctionsForNftToken[tokenId].current();
     }
 
-    function list(uint tokenId, uint _startingPrice, uint _priceDeductionRate, uint _endDate) external
+    function list(uint tokenId, uint _startPrice, uint _priceReductionRate, uint _endDate) external
           isTokenOwner(tokenId, "Only token owner can list token.")
           isNotActive(tokenId) {
 
         uint auctionId = numAuctionsForNftToken(tokenId);
 
         auctions[tokenId][auctionId] = Auction({
-            startingPrice: _startingPrice,
-            priceDeductionRate: _priceDeductionRate,
+            startPrice: _startPrice,
+            priceReductionRate: _priceReductionRate,
             startDate: block.timestamp,
             endDate: block.timestamp + _endDate * 1 minutes,
             soldDate: 0,
@@ -59,9 +66,14 @@ contract DutchAuction {
             sold: false
         });
 
+        console.log("block.timestamp:");
+        console.logUint(block.timestamp);
+        console.log("endDate:");
+        console.logUint(block.timestamp + _endDate * 1 minutes);
+
         _numAuctionsForNftToken[tokenId].increment();
 
-        emit List(tokenId, auctionId, _startingPrice);
+        emit List(tokenId, auctionId, _startPrice);
     }
 
     function currentPrice(uint tokenId) public view returns(uint) {
@@ -69,14 +81,14 @@ contract DutchAuction {
         require(auctionId >= 0, "NFT token never listed");
 
         uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startDate;
-        uint deduction = auctions[tokenId][auctionId].priceDeductionRate * timeElapsed;
-        uint startingPrice = auctions[tokenId][auctionId].startingPrice;
+        uint reduction = auctions[tokenId][auctionId].priceReductionRate * timeElapsed;
+        uint startPrice = auctions[tokenId][auctionId].startPrice;
 
-        if (deduction > startingPrice) {
+        if (reduction > startPrice) {
             return 0;
         }
 
-        return startingPrice - deduction;
+        return startPrice - reduction;
     } 
 
     function buy(uint tokenId) external payable isActive(tokenId) {
@@ -114,20 +126,12 @@ contract DutchAuction {
 
         uint auctionId = auctionIndex - 1;
 
-        console.log("tokenId =");
-        console.log(tokenId);
-        console.log("auctionId = ");
-        console.log(auctionId);
-
-        console.log("sold = ");
+        console.log("sold:");
         console.logBool(auctions[tokenId][auctionId].sold);
-
-        console.log("block.timestamp = ");
+        console.log("block.timestamp:");
         console.logUint(block.timestamp);
-
-        console.log("auctions[tokenId][auctionId].endDate = ");
+        console.log("auctions[tokenId][auctionId].endDate:");
         console.logUint(auctions[tokenId][auctionId].endDate);
-
 
         return !auctions[tokenId][auctionId].sold && block.timestamp < auctions[tokenId][auctionId].endDate;
     }

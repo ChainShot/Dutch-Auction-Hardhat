@@ -2,6 +2,7 @@ import axios from 'axios';
 import { ethers } from 'ethers';
 
 import {
+  renderApprovalToListingStateChange,
   renderNftToken,
   renderNftTokenForm,
   renderNftTokenListings,
@@ -52,12 +53,27 @@ async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
   const nftTokenListings = await Promise.all(nftTokenListingsPromises);
 
   return nftTokenListings.map((nftTokenListing, index) => {
+    const startMillis = +nftTokenListing.startDate.toString() * 1000;
+    const endMillis = +nftTokenListing.endDate.toString() * 1000;
+
+    const startDate = new Date(startMillis);
+    const endDate = new Date(endMillis);
+
+    console.log(`startMillis = ${startMillis}`);
+    console.log(`endMillis = ${endMillis}`);
+
+    console.log(`startDate = ${startDate.toUTCString()}`);
+    console.log(`endDate = ${endDate.toUTCString()}`);
+
+    console.log(`nftTokenListing.startPrice = ${nftTokenListing.startPrice}`);
+    console.log(`nftTokenListing.soldPrice = ${nftTokenListing.soldPrice}`);
+
     return {
       listingId: index,
-      startPrice: nftTokenListing.startingPrice.toString(),
+      startPrice: ethers.utils.formatEther(nftTokenListing.startPrice),
       startDate: new Date(nftTokenListing.startDate.toNumber() * 1000),
       endDate: new Date(nftTokenListing.endDate.toNumber() * 1000),
-      soldPrice: nftTokenListing.soldPrice.toString(),
+      soldPrice: ethers.utils.formatEther(nftTokenListing.soldPrice),
       soldDate: new Date(nftTokenListing.soldDate.toNumber() * 1000),
       sold: nftTokenListing.sold,
     };
@@ -80,9 +96,9 @@ async function getNftTokenActiveListing(
   }
 
   const activeListing = nftTokenListings[nftTokenListings.length - 1];
-  activeListing.currentPrice = await dutchAuctionContract.currentPrice(
-    nftTokenId
-  );
+  const currentPrice = await dutchAuctionContract.currentPrice(nftTokenId);
+
+  activeListing.currentPrice = ethers.utils.formatEther(currentPrice);
 
   return activeListing;
 }
@@ -112,16 +128,15 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
   ].map((addr) => addr.toLowerCase());
 }
 
-function setupContractEventListeners(dutchAuctionContract, nftContract) {
-  // TODO: these trigger infinite reloading...how to stop that?
-  //
-  // // reload browser window when token is approved
-  // nftContract.on('Approval', () => {
-  //   console.log('Reloading on Approval event');
-  //   setTimeout(() => {
-  //     location.reload();
-  //   }, 5000);
-  // });
+function setupContractEventListeners(
+  dutchAuctionContract,
+  nftContract,
+  nftTokenId
+) {
+  nftContract.on('Approval', () => {
+    renderApprovalToListingStateChange(dutchAuctionContract, nftTokenId);
+  });
+
   // dutchAuctionContract.on('List', () => {
   //   console.log('Reloading on List event');
   //   setTimeout(() => {
@@ -148,7 +163,7 @@ function setupContractEventListeners(dutchAuctionContract, nftContract) {
     await dutchAuctionContract.nftAddress()
   );
 
-  setupContractEventListeners(dutchAuctionContract, nftContract);
+  setupContractEventListeners(dutchAuctionContract, nftContract, nftTokenId);
 
   const nftTokenMetadata = await getNftTokenMetadata(nftTokenMetadataUri);
 
@@ -165,7 +180,7 @@ function setupContractEventListeners(dutchAuctionContract, nftContract) {
 
   // if an NFT token has an active listing, it is always the last listing in the array,
   // so we remove it from the listings array
-  if (typeof nftTokenActiveListing !== undefined) {
+  if (typeof nftTokenActiveListing !== 'undefined') {
     nftTokenListings.splice(-1);
   }
 

@@ -2,9 +2,6 @@
 
 const { ethers } = require('hardhat');
 
-const TOKEN_URI =
-  'https://gateway.pinata.cloud/ipfs/QmTxbn5FMxrbPhvCpLDHZA7bhjNXPtY1LEoNApHUrTDUE6';
-
 async function deployNft() {
   const Tulip = await ethers.getContractFactory('Tulip');
   const tulip = await Tulip.deploy();
@@ -14,11 +11,19 @@ async function deployNft() {
   return tulip;
 }
 
-async function mintNftToken(nftContract, tokenOwnerAddress) {
+async function mintNftToken(
+  nftContract,
+  nftTokenMetaDataUri,
+  tokenOwnerAddress
+) {
   const Tulip = await ethers.getContractFactory('Tulip');
   const tulip = await Tulip.attach(nftContract.address);
 
-  const mintNftTxn = await tulip.mintNft(tokenOwnerAddress, TOKEN_URI);
+  const mintNftTxn = await tulip.mintNft(
+    tokenOwnerAddress,
+    nftTokenMetaDataUri
+  );
+
   const mintNftTxnReceipt = await mintNftTxn.wait();
 
   const transferEvent = mintNftTxnReceipt.events.find(

@@ -28,9 +28,9 @@ Setup a local `.env` file, which can be based on the file `./.env.example`.
 
 1. If you don't already have an account on Pinata, setup a free account there now.
 2. Once you have an account, upload the file `./nfts/tulip.jpg` to Pinata.
-3. After you've uploaded the file, click on the file on the Pinata website. Then copy down the Pinata URL of the uploaded file.
-4. Open the file `./nfts/tulip-metadata.json` and change the variable `image` to be the Pinata URL tha you copied in step 3.
-5. Now upload the file `./nfts/tulip-metadata.json` to Pinata as well. Once the file has been uploaded, click on the file on Pinata website.
+3. After you've uploaded the file, click on the file on the Pinata website. Then copy down the Pinata CID of the uploaded file. The CID is the last part of the Pinanta URL. ie: https://gateway.pinata.cloud/ipfs/CID
+4. Copy the file `./nfts/tulip-metadata.json.example` to `./nfts/tulip-metadata.json`.
+5. Open the file `./nfts/tulip-metadata.json` and change `<CID>` of the variable `image` to be the Pinata CID that you copied in step 6. Now upload the file `./nfts/tulip-metadata.json` to Pinata as well. Once the file has been uploaded, click on the file on Pinata website.
 6. Copy the Pinata URL of the `tulip-metadata.json` you just uploaded and paste the value into your `./env` file as the value of the `NFT_TOKEN_METADATA_URI` variable.
 
 ## Run the tests

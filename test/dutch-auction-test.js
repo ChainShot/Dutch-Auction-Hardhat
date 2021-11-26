@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const chai = require('chai');
 const { solidity } = require('ethereum-waffle');
 const { ethers } = require('hardhat');
@@ -6,6 +8,8 @@ require('@nomiclabs/hardhat-waffle');
 
 chai.use(solidity);
 const expect = chai.expect;
+
+const NFT_TOKEN_METADATA_URI = process.env.NFT_TOKEN_METADATA_URI;
 
 const {
   deployDutchAuction,
@@ -16,8 +20,8 @@ const {
 describe('DutchAuction', function () {
   let deployer, tokenOwner, tokenBuyer;
 
-  const startingPrice = 10n;
-  const priceDeductionRate = 1n;
+  const startPrice = 10n;
+  const priceReductionRate = 1n;
   const endDate = 1n; // units are minutes from 'now'
   const duration = 60n; // 60 seconds
 
@@ -61,7 +65,11 @@ describe('DutchAuction', function () {
 
     // mint new NFT token for each Dutch Auction contract test
     beforeEach(async function () {
-      nftTokenId = await mintNftToken(nftContract, tokenOwner.address);
+      nftTokenId = await mintNftToken(
+        nftContract,
+        NFT_TOKEN_METADATA_URI,
+        tokenOwner.address
+      );
 
       // connect to the Dutch Auction contract as the token owner
       dutchAuctionContract = await dutchAuctionContract.connect(tokenOwner);
@@ -82,8 +90,8 @@ describe('DutchAuction', function () {
 
       const listingTxn = await dutchAuctionContract.list(
         nftTokenId,
-        startingPrice,
-        priceDeductionRate,
+        startPrice,
+        priceReductionRate,
         endDate
       );
 
@@ -94,8 +102,8 @@ describe('DutchAuction', function () {
 
       const expectedStartDate = (await ethers.provider.getBlock()).timestamp;
 
-      expect(auction.startingPrice).to.equal(startingPrice);
-      expect(auction.priceDeductionRate).to.equal(priceDeductionRate);
+      expect(auction.startPrice).to.equal(startPrice);
+      expect(auction.priceReductionRate).to.equal(priceReductionRate);
       expect(auction.startDate).to.equal(expectedStartDate);
       expect(auction.endDate.sub(auction.startDate)).to.equal(duration);
       expect(auction.soldDate).to.equal(0n);
@@ -104,7 +112,7 @@ describe('DutchAuction', function () {
 
       await expect(listingTxn)
         .to.emit(dutchAuctionContract, 'List')
-        .withArgs(nftTokenId, auctionId, startingPrice);
+        .withArgs(nftTokenId, auctionId, startPrice);
 
       // after listing, expect there is 1 auction for a freshly minted NFT token
       expect(
@@ -119,8 +127,8 @@ describe('DutchAuction', function () {
       await expect(
         dutchAuctionContract.list(
           nftTokenId,
-          startingPrice,
-          priceDeductionRate,
+          startPrice,
+          priceReductionRate,
           endDate
         )
       ).to.be.revertedWith('Only token owner can list token.');
@@ -132,16 +140,16 @@ describe('DutchAuction', function () {
 
       await dutchAuctionContract.list(
         nftTokenId,
-        startingPrice,
-        priceDeductionRate,
+        startPrice,
+        priceReductionRate,
         endDate
       );
 
       await expect(
         dutchAuctionContract.list(
           nftTokenId,
-          startingPrice,
-          priceDeductionRate,
+          startPrice,
+          priceReductionRate,
           endDate
         )
       ).to.be.revertedWith(
@@ -166,7 +174,11 @@ describe('DutchAuction', function () {
 
     // mint new NFT token for each Dutch Auction contract test
     beforeEach(async function () {
-      nftTokenId = await mintNftToken(nftContract, tokenOwner.address);
+      nftTokenId = await mintNftToken(
+        nftContract,
+        NFT_TOKEN_METADATA_URI,
+        tokenOwner.address
+      );
 
       // connect to the Dutch Auction contract as the token owner
       dutchAuctionContract = await dutchAuctionContract.connect(tokenOwner);
@@ -177,8 +189,8 @@ describe('DutchAuction', function () {
 
       await dutchAuctionContract.list(
         nftTokenId,
-        startingPrice,
-        priceDeductionRate,
+        startPrice,
+        priceReductionRate,
         endDate
       );
 
