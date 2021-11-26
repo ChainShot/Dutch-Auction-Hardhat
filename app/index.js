@@ -33,8 +33,6 @@ async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
   const numAuctionsForNftToken =
     await dutchAuctionContract.numAuctionsForNftToken(nftTokenId);
 
-  console.log(`numAuctionsForNftToken = ${numAuctionsForNftToken.toString()}`);
-
   const nftTokenListingsPromises = [];
 
   for (let i = 0; i < numAuctionsForNftToken.toNumber(); i++) {
@@ -52,10 +50,6 @@ async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
   }
 
   const nftTokenListings = await Promise.all(nftTokenListingsPromises);
-
-  console.log(
-    `nftTokenListings = ${JSON.stringify(nftTokenListings, undefined, 2)}`
-  );
 
   return nftTokenListings.map((nftTokenListing, index) => {
     return {
@@ -78,6 +72,8 @@ async function getNftTokenActiveListing(
   const isListingActive = await dutchAuctionContract.isListingActive(
     nftTokenId
   );
+
+  console.log({ isListingActive });
 
   if (!isListingActive) {
     return undefined;
@@ -116,6 +112,30 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
   ].map((addr) => addr.toLowerCase());
 }
 
+function setupContractEventListeners(dutchAuctionContract, nftContract) {
+  // TODO: these trigger infinite reloading...how to stop that?
+  //
+  // // reload browser window when token is approved
+  // nftContract.on('Approval', () => {
+  //   console.log('Reloading on Approval event');
+  //   setTimeout(() => {
+  //     location.reload();
+  //   }, 5000);
+  // });
+  // dutchAuctionContract.on('List', () => {
+  //   console.log('Reloading on List event');
+  //   setTimeout(() => {
+  //     location.reload();
+  //   }, 5000);
+  // });
+  // dutchAuctionContract.on('Buy', () => {
+  //   console.log('Reloading on Buy event');
+  //   setTimeout(() => {
+  //     location.reload();
+  //   }, 5000);
+  // });
+}
+
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 
@@ -128,15 +148,13 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
     await dutchAuctionContract.nftAddress()
   );
 
+  setupContractEventListeners(dutchAuctionContract, nftContract);
+
   const nftTokenMetadata = await getNftTokenMetadata(nftTokenMetadataUri);
 
   const nftTokenListings = await getNftTokenListings(
     dutchAuctionContract,
     nftTokenId
-  );
-
-  console.log(
-    `2: nftTokenListings = ${JSON.stringify(nftTokenListings, undefined, 2)}`
   );
 
   const nftTokenActiveListing = await getNftTokenActiveListing(

@@ -114,6 +114,21 @@ contract DutchAuction {
 
         uint auctionId = auctionIndex - 1;
 
+        console.log("tokenId =");
+        console.log(tokenId);
+        console.log("auctionId = ");
+        console.log(auctionId);
+
+        console.log("sold = ");
+        console.logBool(auctions[tokenId][auctionId].sold);
+
+        console.log("block.timestamp = ");
+        console.logUint(block.timestamp);
+
+        console.log("auctions[tokenId][auctionId].endDate = ");
+        console.logUint(auctions[tokenId][auctionId].endDate);
+
+
         return !auctions[tokenId][auctionId].sold && block.timestamp < auctions[tokenId][auctionId].endDate;
     }
 

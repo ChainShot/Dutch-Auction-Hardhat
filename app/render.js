@@ -195,7 +195,8 @@ function renderPreviousNftListings(nftTokenListings) {
     nftTokenListings.length === 0
   ) {
     const nftPreviousListings = document.createElement('div');
-    nftPreviousListings.innerHTML = '<h3><em>None</em></h3>';
+    nftPreviousListings.innerHTML =
+      '<h3 style="margin: auto; width: 50%; text-align: center"><em>None</em></h3>';
     nftPreviousListingsContainer.appendChild(nftPreviousListings);
 
     return;
