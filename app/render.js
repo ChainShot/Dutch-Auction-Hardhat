@@ -1,10 +1,23 @@
 import { ethers } from 'ethers';
 
+// TODO: clear this interval when listing is sold or expires
+let currentPriceInterval;
+
 function unrenderNftTokenListingApprovalButton(nftFormContainer) {
   const nftApproveButton = document.getElementsByClassName('approve-button')[0];
 
   try {
     nftFormContainer.removeChild(nftApproveButton);
+  } catch (error) {
+    // silently ignore for simplicity
+  }
+}
+
+function unrenderNftTokenListingForm(nftFormContainer) {
+  try {
+    while (nftFormContainer.firstChild) {
+      nftFormContainer.removeChild(nftFormContainer.firstChild);
+    }
   } catch (error) {
     // silently ignore for simplicity
   }
@@ -75,14 +88,12 @@ function renderNftTokenListingForm(
 
     const priceReductionRate = ethers.utils.parseUnits(reductionRate, 'finney');
 
-    // dutchAuctionContract.list(
-    //   nftTokenId,
-    //   ethers.utils.parseEther(startingPrice),
-    //   priceReductionRate,
-    //   duration
-    // );
-
-    dutchAuctionContract.list(1n, ethers.utils.parseEther('10'), 1n, 1n);
+    dutchAuctionContract.list(
+      nftTokenId,
+      ethers.utils.parseEther(startingPrice),
+      priceReductionRate,
+      duration
+    );
   });
 
   nftFormContainer.appendChild(tokenListingFormTable);
@@ -168,6 +179,26 @@ export function renderApprovalToListingStateChange(
   renderNftTokenListingForm(dutchAuctionContract, nftTokenId, nftFormContainer);
 }
 
+export function renderListingToListedStateChange(
+  dutchAuctionContract,
+  nftTokenActiveListing,
+  nftTokenId
+) {
+  const nftFormContainer =
+    document.getElementsByClassName('nft-form-container')[0];
+
+  unrenderNftTokenListingForm(nftFormContainer);
+
+  if (typeof nftTokenActiveListing !== 'undefined') {
+    renderActiveNftListing({
+      dutchAuctionContract,
+      nftTokenId,
+      nftTokenActiveListing,
+      nftFormContainer,
+    });
+  }
+}
+
 export function renderNftToken(nftMetadata) {
   document.getElementsByClassName('nft-name')[0].innerHTML = nftMetadata.name;
   document.getElementsByClassName('nft-description')[0].innerHTML =
@@ -204,7 +235,12 @@ export function renderNftTokenForm({
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
 
-  renderActiveNftListing(nftTokenActiveListing, nftFormContainer);
+  renderActiveNftListing({
+    dutchAuctionContract,
+    nftTokenId,
+    nftTokenActiveListing,
+    nftFormContainer,
+  });
 
   if (metamaskAccountAddr === tokenOwnerAddr) {
     renderForTokenOwner({
@@ -226,13 +262,15 @@ export function renderNftTokenForm({
   }
 }
 
-function renderActiveNftListing(nftTokenActiveListing) {
+function renderActiveNftListing({
+  dutchAuctionContract,
+  nftTokenId,
+  nftTokenActiveListing,
+  nftFormContainer,
+}) {
   if (typeof nftTokenActiveListing === 'undefined') {
     return;
   }
-
-  const nftFormContainer =
-    document.getElementsByClassName('nft-form-container')[0];
 
   const containerHeader = document.createElement('h3');
   containerHeader.classList.add('active-listing-header');
@@ -255,12 +293,29 @@ function renderActiveNftListing(nftTokenActiveListing) {
 
   let innerHTML =
     `<tr><th>Listing Id</th><th>Price</th><th>Start Date</th><th>End Date</th></tr>` +
-    `<tr><td>${listingId}</td><td>${price}</td><td>${startDate}</td><td>${endDate}</td></tr>`;
+    `<tr><td>${listingId}</td><td class="current-price">${price}</td><td>${startDate}</td><td>${endDate}</td></tr>`;
 
   nftActiveListingTable.innerHTML = innerHTML;
 
   nftActiveListingContainer.appendChild(nftActiveListingTable);
   nftFormContainer.appendChild(nftActiveListingContainer);
+
+  const currentPriceElement =
+    document.getElementsByClassName('current-price')[0];
+
+  const currentPrice = ethers.BigNumber.from(
+    currentPriceElement.innerHTML.split('.')[0]
+  );
+
+  currentPriceInterval = setInterval(async () => {
+    const newPrice = await dutchAuctionContract.currentPrice(nftTokenId);
+    console.log(
+      `newPrice = ${newPrice.toString()}, oldPrice = ${currentPrice.toString()}`
+    );
+    if (!currentPrice.eq(newPrice)) {
+      currentPriceElement.innerHTML = ethers.utils.formatEther(newPrice);
+    }
+  }, 5000);
 }
 
 function renderPreviousNftListings(nftTokenListings) {
