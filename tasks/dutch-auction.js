@@ -5,6 +5,11 @@ require('hardhat/config');
 const HARDHAT_LOCAL_NETWORK = 'localhost';
 const { PUBLIC_ADDR } = process.env;
 
+task('chain-id', 'Get HH chainId').setAction(async (_, hre) => {
+  console.log(`hre.network.name = ${hre.network.name}`);
+  console.log(`hre.network.config.chainId = ${hre.network.config.chainId}`);
+});
+
 task('deploy-dutch-auction', 'Deploy Dutch Auction contract for a given NFT')
   .addParam(
     'nftAddress',

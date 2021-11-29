@@ -22,6 +22,11 @@ function renderNftTokenListingApprovalButton({
   nftApproveButton.classList.add('button', 'approve-button');
 
   nftApproveButton.addEventListener('click', () => {
+    console.log(
+      `calling nftContract.approve(dutchAuctionContract.address, nftTokenId): dutchAuctionContract.address = ${
+        dutchAuctionContract.address
+      }, nftTokenId= ${nftTokenId.toString()}}`
+    );
     nftContract.approve(dutchAuctionContract.address, nftTokenId);
   });
 
@@ -33,6 +38,8 @@ function renderNftTokenListingForm(
   nftTokenId,
   nftFormContainer
 ) {
+  console.log(`in renderNftTokenListingForm()`);
+
   const tokenListingFormTable = document.createElement('table');
   tokenListingFormTable.classList.add('token-listing-form-table');
   tokenListingFormTable.innerHTML =

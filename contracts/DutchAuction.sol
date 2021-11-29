@@ -35,17 +35,6 @@ contract DutchAuction {
         nftAddress = _nftAddress;
     }
 
-    function getAuction(uint tokenId, uint auctionId) public view returns (Auction memory) {
-        console.log("sold:");
-        console.logBool(auctions[tokenId][auctionId].sold);
-        console.log("block.timestamp:");
-        console.logUint(block.timestamp);
-        console.log("auctions[tokenId][auctionId].endDate:");
-        console.logUint(auctions[tokenId][auctionId].endDate);
-
-        return auctions[tokenId][auctionId];
-    }
-
     function numAuctionsForNftToken(uint tokenId) public view returns (uint) {
         return _numAuctionsForNftToken[tokenId].current();
     }
@@ -125,6 +114,9 @@ contract DutchAuction {
         }
 
         uint auctionId = auctionIndex - 1;
+
+        console.log("block.number:");
+        console.logUint(block.number);
 
         console.log("sold:");
         console.logBool(auctions[tokenId][auctionId].sold);

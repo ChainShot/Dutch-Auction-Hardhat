@@ -34,19 +34,15 @@ async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
   const numAuctionsForNftToken =
     await dutchAuctionContract.numAuctionsForNftToken(nftTokenId);
 
+  console.log(
+    `dutchAuctionContract.numAuctionsForNftToken(nftTokenId): dutchAuctionContract.numAuctionsForNftToken(nftTokenId) = ${numAuctionsForNftToken}, nftTokenId = ${nftTokenId.toString()}`
+  );
+
   const nftTokenListingsPromises = [];
 
   for (let i = 0; i < numAuctionsForNftToken.toNumber(); i++) {
-    // TODO calling the public auctions() accessor fails for the token buyer, but works
-    // for the token owner. By creating a separate getAuction() function, things work
-    // for both. I have no idea why.
-
-    // nftTokenListingsPromises.push(
-    //   dutchAuctionContract.auctions(nftTokenId, ethers.BigNumber.from(i))
-    // );
-
     nftTokenListingsPromises.push(
-      dutchAuctionContract.getAuction(nftTokenId, ethers.BigNumber.from(i))
+      dutchAuctionContract.auctions(nftTokenId, ethers.BigNumber.from(i))
     );
   }
 
@@ -62,8 +58,8 @@ async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
     console.log(`startMillis = ${startMillis}`);
     console.log(`endMillis = ${endMillis}`);
 
-    console.log(`startDate = ${startDate.toUTCString()}`);
-    console.log(`endDate = ${endDate.toUTCString()}`);
+    console.log(`startDate = ${startDate.toLocaleString()}`);
+    console.log(`endDate = ${endDate.toLocaleString()}`);
 
     console.log(`nftTokenListing.startPrice = ${nftTokenListing.startPrice}`);
     console.log(`nftTokenListing.soldPrice = ${nftTokenListing.soldPrice}`);
@@ -120,6 +116,14 @@ async function getNftTokenMetadata(nftTokenMetadataUri) {
 }
 
 async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
+  console.log(
+    `calling nftContract.ownerOf(nftTokenId): nftTokenId = ${nftTokenId.toString()}`
+  );
+
+  console.log(
+    `calling nftContract.nftContract.getApproved(nftTokenId): nftTokenId = ${nftTokenId.toString()}`
+  );
+
   return [
     (await ethereum.request({ method: 'eth_requestAccounts' }))[0],
     await nftContract.ownerOf(nftTokenId),
@@ -133,6 +137,8 @@ function setupContractEventListeners(
   nftContract,
   nftTokenId
 ) {
+  console.log(`calling nftContract.on('Approval', ...)`);
+
   nftContract.on('Approval', () => {
     renderApprovalToListingStateChange(dutchAuctionContract, nftTokenId);
   });
@@ -210,8 +216,17 @@ function setupContractEventListeners(
 
   renderNftTokenListings(nftTokenActiveListing, nftTokenListings);
 
+  const block = await provider.getBlock();
+  console.log(
+    `block.number = ${block.number.toString()}, block.timestamp = ${block.timestamp.toString()}`
+  );
+
   console.log(`account = ${JSON.stringify(metamaskAccountAddr)}`);
   console.log(`dutchAuctionContract.address = ${dutchAuctionContract.address}`);
+
+  console.log(
+    `calling nftContract.address: nftContract.address = ${nftContract.address}`
+  );
   console.log(`nftContract.address = ${nftContract.address}`);
   console.log(
     `nftTokenMetadata = ${JSON.stringify(nftTokenMetadata, undefined, 2)}`
