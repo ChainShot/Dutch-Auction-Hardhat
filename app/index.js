@@ -1,13 +1,16 @@
 import axios from 'axios';
 import { ethers } from 'ethers';
 
+import { getNftTokenListings, getNftTokenActiveListing } from './dutch-auction';
+
 import {
+  clearCurrentPriceTimers,
   renderApprovalToListingStateChange,
-  renderListedToEndedStateChange,
   renderListingToListedStateChange,
   renderNftToken,
   renderNftTokenForm,
   renderPreviousNftListings,
+  unrenderAll,
 } from './render';
 
 import './index.scss';
@@ -30,75 +33,6 @@ async function getDutchAuctionContract(dutchAuctionContractAddr) {
   );
 
   return await DutchAuction.attach(dutchAuctionContractAddr);
-}
-
-async function getNftTokenListings(dutchAuctionContract, nftTokenId) {
-  const numAuctionsForNftToken =
-    await dutchAuctionContract.numAuctionsForNftToken(nftTokenId);
-
-  console.log(
-    `dutchAuctionContract.numAuctionsForNftToken(nftTokenId): dutchAuctionContract.numAuctionsForNftToken(nftTokenId) = ${numAuctionsForNftToken}, nftTokenId = ${nftTokenId.toString()}`
-  );
-
-  const nftTokenListingsPromises = [];
-
-  for (let i = 0; i < numAuctionsForNftToken.toNumber(); i++) {
-    nftTokenListingsPromises.push(
-      dutchAuctionContract.auctions(nftTokenId, ethers.BigNumber.from(i))
-    );
-  }
-
-  const nftTokenListings = await Promise.all(nftTokenListingsPromises);
-
-  return nftTokenListings.map((nftTokenListing, index) => {
-    const startMillis = +nftTokenListing.startDate.toString() * 1000;
-    const endMillis = +nftTokenListing.endDate.toString() * 1000;
-
-    const startDate = new Date(startMillis);
-    const endDate = new Date(endMillis);
-
-    console.log(`startMillis = ${startMillis}`);
-    console.log(`endMillis = ${endMillis}`);
-
-    console.log(`startDate = ${startDate.toLocaleString()}`);
-    console.log(`endDate = ${endDate.toLocaleString()}`);
-
-    console.log(`nftTokenListing.startPrice = ${nftTokenListing.startPrice}`);
-    console.log(`nftTokenListing.soldPrice = ${nftTokenListing.soldPrice}`);
-
-    return {
-      listingId: index,
-      startPrice: ethers.utils.formatEther(nftTokenListing.startPrice),
-      startDate: new Date(nftTokenListing.startDate.toNumber() * 1000),
-      endDate: new Date(nftTokenListing.endDate.toNumber() * 1000),
-      soldPrice: ethers.utils.formatEther(nftTokenListing.soldPrice),
-      soldDate: new Date(nftTokenListing.soldDate.toNumber() * 1000),
-      sold: nftTokenListing.sold,
-    };
-  });
-}
-
-async function getNftTokenActiveListing(
-  dutchAuctionContract,
-  nftTokenId,
-  nftTokenListings
-) {
-  const isListingActive = await dutchAuctionContract.isListingActive(
-    nftTokenId
-  );
-
-  console.log({ isListingActive });
-
-  if (!isListingActive) {
-    return undefined;
-  }
-
-  const activeListing = nftTokenListings[nftTokenListings.length - 1];
-  const currentPrice = await dutchAuctionContract.currentPrice(nftTokenId);
-
-  activeListing.currentPrice = ethers.utils.formatEther(currentPrice);
-
-  return activeListing;
 }
 
 async function getNftContract(nftContractAddress) {
@@ -127,7 +61,6 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
   );
 
   return [
-    (await ethereum.request({ method: 'eth_requestAccounts' }))[0],
     await nftContract.ownerOf(nftTokenId),
     await nftContract.getApproved(nftTokenId),
     dutchAuctionContract.address,
@@ -138,7 +71,6 @@ function setupContractEventListeners({
   dutchAuctionContract,
   nftContract,
   nftTokenId,
-  listingEndedEventListener,
 }) {
   console.log(`calling nftContract.on('Approval', ...)`);
 
@@ -162,7 +94,6 @@ function setupContractEventListeners({
       dutchAuctionContract,
       nftTokenActiveListing,
       nftTokenId,
-      listingEndedEventListener,
     });
   });
 
@@ -177,7 +108,32 @@ function setupContractEventListeners({
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 
-(async function (dutchAuctionContractAddr, nftTokenMetadataUri, nftTokenId) {
+async function handleAccountsChanged(accounts) {
+  // clear all event listeners
+  ethereum.removeListener('accountsChanged', handleAccountsChanged);
+
+  // clear all timers
+  clearCurrentPriceTimers();
+
+  // if metamask account changes unrender everything and then reload the page by calling very function, ie: main()
+  unrenderAll();
+
+  const metamaskAccountAddr = accounts[0];
+
+  await main(
+    metamaskAccountAddr,
+    DUTCH_AUCTION_CONTRACT_ADDR,
+    NFT_TOKEN_METADATA_URI,
+    NFT_TOKEN_ID
+  );
+}
+
+async function main(
+  metamaskAccountAddr,
+  dutchAuctionContractAddr,
+  nftTokenMetadataUri,
+  nftTokenId
+) {
   //
   // TODO: https://docs.metamask.io/guide/ethereum-provider.html#events
   //
@@ -186,6 +142,8 @@ function setupContractEventListeners({
   // if metamask is locked this will open up the metamask dialog to enter password and
   // unlock metamask
   await ethereum.request({ method: 'eth_requestAccounts' });
+
+  ethereum.on('accountsChanged', handleAccountsChanged);
 
   provider = new ethers.providers.Web3Provider(ethereum);
   signer = provider.getSigner();
@@ -217,31 +175,17 @@ function setupContractEventListeners({
     nftTokenListings.splice(-1);
   }
 
-  const [
-    metamaskAccountAddr,
-    tokenOwnerAddr,
-    tokenApprovedForAddr,
-    dutchAuctionContractAddress,
-  ] = await getAddresses(nftContract, nftTokenId, dutchAuctionContract);
+  const [tokenOwnerAddr, tokenApprovedForAddr, dutchAuctionContractAddress] =
+    await getAddresses(nftContract, nftTokenId, dutchAuctionContract);
 
   const metamaskAccountBalance = await provider.getBalance(metamaskAccountAddr);
 
   const needsApproval = tokenApprovedForAddr !== dutchAuctionContractAddress;
 
-  const listingEndedEventListener = async function () {
-    const nftTokenListings = await getNftTokenListings(
-      dutchAuctionContract,
-      nftTokenId
-    );
-
-    renderListedToEndedStateChange(nftTokenListings);
-  };
-
   setupContractEventListeners({
     dutchAuctionContract,
     nftContract,
     nftTokenId,
-    listingEndedEventListener,
   });
 
   renderNftToken(nftTokenMetadata);
@@ -255,7 +199,6 @@ function setupContractEventListeners({
     tokenOwnerAddr,
     needsApproval,
     nftTokenActiveListing,
-    listingEndedEventListener,
   });
 
   renderPreviousNftListings(nftTokenListings);
@@ -277,4 +220,17 @@ function setupContractEventListeners({
   );
 
   console.log(`Owner of token id '${nftTokenId}' = ${tokenOwnerAddr}`);
+}
+
+(async function (dutchAuctionContractAddr, nftTokenMetadataUri, nftTokenId) {
+  const metamaskAccountAddr = (
+    await ethereum.request({ method: 'eth_requestAccounts' })
+  )[0];
+
+  await main(
+    metamaskAccountAddr,
+    dutchAuctionContractAddr,
+    nftTokenMetadataUri,
+    nftTokenId
+  );
 })(DUTCH_AUCTION_CONTRACT_ADDR, NFT_TOKEN_METADATA_URI, NFT_TOKEN_ID);

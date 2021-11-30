@@ -143,12 +143,14 @@ contract DutchAuction {
         console.logUint(auctions[tokenId][auctionId].endDate);
 
         bool ended = auctions[tokenId][auctionId].sold || block.timestamp >= auctions[tokenId][auctionId].endDate;
+        console.log("DutchAuction.sol:isListingActive(): ended");
+        console.logBool(ended);
 
-        if (ended != auctions[tokenId][auctionId].sold) {
+        if (ended && ended != auctions[tokenId][auctionId].sold) {
             console.log("Auction has ended due to expiration");
         }
 
-        return ended;
+        return !ended;
     }
 
     modifier isTokenOwner(uint tokenId, string memory errorMessage) {

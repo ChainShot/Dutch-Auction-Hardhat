@@ -1,7 +1,10 @@
 import { ethers } from 'ethers';
 
-let currentPriceTimer;
-const currentPricePollingInterval = 5000;
+import { getNftTokenListings } from './dutch-auction';
+
+const CURRENT_PRICE_POLLING_INTERVAL = 5000;
+
+let currentPriceTimers = [];
 
 function unrenderNftTokenListingApprovalButton(nftFormContainer) {
   const nftApproveButton = document.getElementsByClassName('approve-button')[0];
@@ -33,6 +36,40 @@ function unrenderActiveNftListing(nftFormContainer) {
   }
 }
 
+function unrenderNftPreviousListings() {
+  const nftPreviousListingsContainers = document.getElementsByClassName(
+    'nft-previous-listings-container'
+  );
+
+  if (nftPreviousListingsContainers.length > 0) {
+    const [nftPreviousListingsContainer] = nftPreviousListingsContainers;
+    nftPreviousListingsContainer.replaceChildren();
+  }
+}
+
+export function unrenderAll() {
+  const nftAttributesTable =
+    document.getElementsByClassName('nft-attributes')[0];
+  nftAttributesTable.replaceChildren();
+
+  const nftImageContainer = document.getElementsByClassName(
+    'nft-image-container'
+  )[0];
+  nftImageContainer.replaceChildren();
+
+  const nftFormContainer =
+    document.getElementsByClassName('nft-form-container')[0];
+  nftFormContainer.replaceChildren();
+
+  unrenderNftPreviousListings();
+}
+
+export function clearCurrentPriceTimers() {
+  currentPriceTimers.forEach((currentPriceTimer) => {
+    clearTimeout(currentPriceTimer);
+  });
+}
+
 function renderNftTokenListingApprovalButton({
   nftContract,
   dutchAuctionContract,
@@ -56,11 +93,11 @@ function renderNftTokenListingApprovalButton({
   nftFormContainer.appendChild(nftApproveButton);
 }
 
-function renderNftTokenListingForm(
+function renderNftTokenListingForm({
   dutchAuctionContract,
   nftTokenId,
-  nftFormContainer
-) {
+  nftFormContainer,
+}) {
   console.log(`in renderNftTokenListingForm()`);
 
   const tokenListingFormTable = document.createElement('table');
@@ -72,8 +109,7 @@ function renderNftTokenListingForm(
     '<tr><th>Reduction rate</th><td><input id="reduction-rate" type="text" name="reductionRate"></td><td><strong>Finney per ms</strong></td></tr>';
 
   tokenListingFormTable.innerHTML +=
-    '<tr><th>Ends in</th><td><input id="duration" type="text" name="duration"></td>' +
-    '<td><select id="duration-units" name="durationUnits"><option>Minutes</option><option>Hours</option><option>Days</option></select></td></tr>';
+    '<tr><th>Ends in</th><td><input id="duration" type="text" name="duration"></td><td><strong>Minutes</strong></td></tr>';
 
   const nftListButton = document.createElement('div');
 
@@ -84,18 +120,14 @@ function renderNftTokenListingForm(
     const startingPrice = document.getElementById('starting-price').value;
     const reductionRate = document.getElementById('reduction-rate').value;
     const durationValue = document.getElementById('duration').value;
-    const durationUnits = document.getElementById('duration-units').value;
 
-    let duration;
+    const duration = ethers.BigNumber.from(+durationValue);
 
-    if (durationUnits === 'Minutes') {
-      duration = ethers.BigNumber.from(+durationValue);
-    } else if (durationUnits === 'Hours') {
-      duration = ethers.BigNumber.from(+durationValue * 60);
-    } else {
-      duration = ethers.BigNumber.from(+durationValue * 60 * 24);
-    }
-
+    // remember all the sub-units of Ether? what unit is a finney?
+    // ether - 1e18 wei
+    // finney - 1e15 wei
+    //
+    // reference: https://ethdocs.org/en/latest/ether.html
     const priceReductionRate = ethers.utils.parseUnits(reductionRate, 'finney');
 
     dutchAuctionContract.list(
@@ -126,14 +158,16 @@ function renderForTokenOwner({
       nftFormContainer,
     });
   } else if (typeof nftTokenActiveListing === 'undefined') {
-    renderNftTokenListingForm(
+    renderNftTokenListingForm({
       dutchAuctionContract,
       nftTokenId,
-      nftFormContainer
-    );
+      nftFormContainer,
+    });
   }
 }
 
+// TODO: when auction expires, listing form is rendering. but this should only render for token owners
+// fix this!
 function renderForTokenBuyer({
   dutchAuctionContract,
   nftTokenId,
@@ -186,14 +220,17 @@ export function renderApprovalToListingStateChange(
 
   unrenderNftTokenListingApprovalButton(nftFormContainer);
 
-  renderNftTokenListingForm(dutchAuctionContract, nftTokenId, nftFormContainer);
+  renderNftTokenListingForm({
+    dutchAuctionContract,
+    nftTokenId,
+    nftFormContainer,
+  });
 }
 
 export function renderListingToListedStateChange({
   dutchAuctionContract,
   nftTokenActiveListing,
   nftTokenId,
-  listingEndedEventListener,
 }) {
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
@@ -201,23 +238,41 @@ export function renderListingToListedStateChange({
   unrenderNftTokenListingForm(nftFormContainer);
 
   if (typeof nftTokenActiveListing !== 'undefined') {
+    console.log(
+      `in renderListingToListedStateChange(): calling renderActiveNftListing()`
+    );
     renderActiveNftListing({
       dutchAuctionContract,
       nftTokenId,
       nftTokenActiveListing,
       nftFormContainer,
-      listingEndedEventListener,
     });
   }
 }
 
-function renderListedToEndedStateChange(nftTokenListings) {
+export async function renderListedToEndedStateChange(
+  dutchAuctionContract,
+  nftTokenId
+) {
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
 
   unrenderActiveNftListing(nftFormContainer);
 
-  renderPreviousNftListings(nftTokenListings);
+  unrenderNftPreviousListings();
+
+  const nftPreviousListings = await getNftTokenListings(
+    dutchAuctionContract,
+    nftTokenId
+  );
+
+  renderNftTokenListingForm({
+    dutchAuctionContract,
+    nftTokenId,
+    nftFormContainer,
+  });
+
+  renderPreviousNftListings(nftPreviousListings);
 }
 
 export function renderNftToken(nftMetadata) {
@@ -252,17 +307,17 @@ export function renderNftTokenForm({
   tokenOwnerAddr,
   needsApproval,
   nftTokenActiveListing,
-  listingEndedEventListener,
 }) {
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
+
+  console.log(`in renderNftTokenForm(): calling renderActiveNftListing()`);
 
   renderActiveNftListing({
     dutchAuctionContract,
     nftTokenId,
     nftTokenActiveListing,
     nftFormContainer,
-    listingEndedEventListener,
   });
 
   if (metamaskAccountAddr === tokenOwnerAddr) {
@@ -290,7 +345,6 @@ function renderActiveNftListing({
   nftTokenId,
   nftTokenActiveListing,
   nftFormContainer,
-  listingEndedEventListener,
 }) {
   if (typeof nftTokenActiveListing === 'undefined') {
     return;
@@ -324,68 +378,64 @@ function renderActiveNftListing({
   nftActiveListingContainer.appendChild(nftActiveListingTable);
   nftFormContainer.appendChild(nftActiveListingContainer);
 
-  const currentPriceElement = document.getElementsByClassName('current-price');
+  const currentPriceElement =
+    document.getElementsByClassName('current-price')[0];
   console.log(
     `e(outside) = ${JSON.stringify(currentPriceElement, undefined, 2)}`
   );
 
-  const endedEvent = new Event('Ended');
-  currentPriceElement.addEventListener(listingEndedEventListener);
+  currentPriceTimers.push(
+    setTimeout(async function getCurrentPrice() {
+      let newPrice;
 
-  currentPriceTimer = setTimeout(async function getCurrentPrice() {
-    if (document.getElementsByClassName('current-price').length === 0) {
-      return;
-    }
+      try {
+        newPrice = await dutchAuctionContract.currentPrice(nftTokenId);
+      } catch (error) {
+        if (
+          typeof error.data !== 'undefined' &&
+          typeof error.data.message !== 'undefined' &&
+          error.data.message.includes('No active auction for NFT token.')
+        ) {
+          // clear any and all current price timers
+          clearCurrentPriceTimers();
 
-    let newPrice;
+          await renderListedToEndedStateChange(
+            dutchAuctionContract,
+            nftTokenId
+          );
 
-    try {
-      newPrice = await dutchAuctionContract.currentPrice(nftTokenId);
-    } catch (error) {
-      if (
-        typeof error.data !== 'undefined' &&
-        typeof error.data.message !== 'undefined' &&
-        error.data.message.includes('No active auction for NFT token.')
-      ) {
-        // item not currently active, so stop polling for price
-        clearTimeout(currentPriceTimer);
-
-        currentPriceElement.dispatchEvent(endedEvent);
-
-        await renderListedToEndedStateChange(
-          dutchAuctionContract,
-          nftTokenActiveListing,
-          nftTokenId
-        );
-
-        return;
+          return;
+        }
       }
-    }
 
-    const currentPriceElement =
-      document.getElementsByClassName('current-price')[0];
+      const currentPrice = ethers.utils.parseEther(
+        currentPriceElement.innerHTML
+      );
+      console.log(`currentPrice = ${currentPrice}`);
 
-    const currentPrice = ethers.utils.parseEther(currentPriceElement.innerHTML);
-    console.log(`currentPrice = ${currentPrice}`);
+      console.log(`newPrice = ${newPrice}`);
 
-    console.log(`newPrice = ${newPrice}`);
+      if (!currentPrice.eq(newPrice)) {
+        currentPriceElement.innerHTML = ethers.utils.formatEther(newPrice);
+      }
 
-    if (!currentPrice.eq(newPrice)) {
-      currentPriceElement.innerHTML = ethers.utils.formatEther(newPrice);
-    }
-
-    // reset the timer for the next poll
-    currentPriceTimer = setTimeout(
-      getCurrentPrice,
-      currentPricePollingInterval
-    );
-  }, currentPricePollingInterval);
+      // reset the timer for the next poll
+      currentPriceTimers.push(
+        setTimeout(getCurrentPrice, CURRENT_PRICE_POLLING_INTERVAL)
+      );
+    }, CURRENT_PRICE_POLLING_INTERVAL)
+  );
 }
 
 export function renderPreviousNftListings(nftTokenListings) {
   const nftPreviousListingsContainer = document.getElementsByClassName(
     'nft-previous-listings-container'
   )[0];
+
+  const previousListingsHeader = document.createElement('h2');
+  previousListingsHeader.innerHTML = 'Previous Listings';
+
+  nftPreviousListingsContainer.appendChild(previousListingsHeader);
 
   if (
     typeof nftTokenListings === 'undefined' ||
