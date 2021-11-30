@@ -3,10 +3,11 @@ import { ethers } from 'ethers';
 
 import {
   renderApprovalToListingStateChange,
+  renderListedToEndedStateChange,
   renderListingToListedStateChange,
   renderNftToken,
   renderNftTokenForm,
-  renderNftTokenListings,
+  renderPreviousNftListings,
 } from './render';
 
 import './index.scss';
@@ -18,8 +19,8 @@ const DUTCH_AUCTION_CONTRACT_ADDR = process.env.DUTCH_AUCTION_CONTRACT_ADDR;
 const NFT_TOKEN_METADATA_URI = process.env.NFT_TOKEN_METADATA_URI;
 const NFT_TOKEN_ID = process.env.NFT_TOKEN_ID;
 
-const provider = new ethers.providers.Web3Provider(ethereum);
-const signer = provider.getSigner();
+let provider;
+let signer;
 
 async function getDutchAuctionContract(dutchAuctionContractAddr) {
   const DutchAuction = new ethers.ContractFactory(
@@ -133,11 +134,12 @@ async function getAddresses(nftContract, nftTokenId, dutchAuctionContract) {
   ].map((addr) => addr.toLowerCase());
 }
 
-function setupContractEventListeners(
+function setupContractEventListeners({
   dutchAuctionContract,
   nftContract,
-  nftTokenId
-) {
+  nftTokenId,
+  listingEndedEventListener,
+}) {
   console.log(`calling nftContract.on('Approval', ...)`);
 
   nftContract.on('Approval', () => {
@@ -156,11 +158,12 @@ function setupContractEventListeners(
       nftTokenListings
     );
 
-    renderListingToListedStateChange(
+    renderListingToListedStateChange({
       dutchAuctionContract,
       nftTokenActiveListing,
-      nftTokenId
-    );
+      nftTokenId,
+      listingEndedEventListener,
+    });
   });
 
   // dutchAuctionContract.on('Buy', () => {
@@ -175,6 +178,18 @@ function setupContractEventListeners(
 ////////////////////////////////////////////
 
 (async function (dutchAuctionContractAddr, nftTokenMetadataUri, nftTokenId) {
+  //
+  // TODO: https://docs.metamask.io/guide/ethereum-provider.html#events
+  //
+  // handle account switching events
+
+  // if metamask is locked this will open up the metamask dialog to enter password and
+  // unlock metamask
+  await ethereum.request({ method: 'eth_requestAccounts' });
+
+  provider = new ethers.providers.Web3Provider(ethereum);
+  signer = provider.getSigner();
+
   const dutchAuctionContract = await getDutchAuctionContract(
     dutchAuctionContractAddr
   );
@@ -213,7 +228,21 @@ function setupContractEventListeners(
 
   const needsApproval = tokenApprovedForAddr !== dutchAuctionContractAddress;
 
-  setupContractEventListeners(dutchAuctionContract, nftContract, nftTokenId);
+  const listingEndedEventListener = async function () {
+    const nftTokenListings = await getNftTokenListings(
+      dutchAuctionContract,
+      nftTokenId
+    );
+
+    renderListedToEndedStateChange(nftTokenListings);
+  };
+
+  setupContractEventListeners({
+    dutchAuctionContract,
+    nftContract,
+    nftTokenId,
+    listingEndedEventListener,
+  });
 
   renderNftToken(nftTokenMetadata);
 
@@ -226,9 +255,10 @@ function setupContractEventListeners(
     tokenOwnerAddr,
     needsApproval,
     nftTokenActiveListing,
+    listingEndedEventListener,
   });
 
-  renderNftTokenListings(nftTokenActiveListing, nftTokenListings);
+  renderPreviousNftListings(nftTokenListings);
 
   const block = await provider.getBlock();
   console.log(

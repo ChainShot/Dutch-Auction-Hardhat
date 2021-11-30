@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 
-// TODO: clear this interval when listing is sold or expires
-let currentPriceInterval;
+let currentPriceTimer;
+const currentPricePollingInterval = 5000;
 
 function unrenderNftTokenListingApprovalButton(nftFormContainer) {
   const nftApproveButton = document.getElementsByClassName('approve-button')[0];
@@ -14,6 +14,16 @@ function unrenderNftTokenListingApprovalButton(nftFormContainer) {
 }
 
 function unrenderNftTokenListingForm(nftFormContainer) {
+  try {
+    while (nftFormContainer.firstChild) {
+      nftFormContainer.removeChild(nftFormContainer.firstChild);
+    }
+  } catch (error) {
+    // silently ignore for simplicity
+  }
+}
+
+function unrenderActiveNftListing(nftFormContainer) {
   try {
     while (nftFormContainer.firstChild) {
       nftFormContainer.removeChild(nftFormContainer.firstChild);
@@ -179,11 +189,12 @@ export function renderApprovalToListingStateChange(
   renderNftTokenListingForm(dutchAuctionContract, nftTokenId, nftFormContainer);
 }
 
-export function renderListingToListedStateChange(
+export function renderListingToListedStateChange({
   dutchAuctionContract,
   nftTokenActiveListing,
-  nftTokenId
-) {
+  nftTokenId,
+  listingEndedEventListener,
+}) {
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
 
@@ -195,8 +206,18 @@ export function renderListingToListedStateChange(
       nftTokenId,
       nftTokenActiveListing,
       nftFormContainer,
+      listingEndedEventListener,
     });
   }
+}
+
+function renderListedToEndedStateChange(nftTokenListings) {
+  const nftFormContainer =
+    document.getElementsByClassName('nft-form-container')[0];
+
+  unrenderActiveNftListing(nftFormContainer);
+
+  renderPreviousNftListings(nftTokenListings);
 }
 
 export function renderNftToken(nftMetadata) {
@@ -231,6 +252,7 @@ export function renderNftTokenForm({
   tokenOwnerAddr,
   needsApproval,
   nftTokenActiveListing,
+  listingEndedEventListener,
 }) {
   const nftFormContainer =
     document.getElementsByClassName('nft-form-container')[0];
@@ -240,6 +262,7 @@ export function renderNftTokenForm({
     nftTokenId,
     nftTokenActiveListing,
     nftFormContainer,
+    listingEndedEventListener,
   });
 
   if (metamaskAccountAddr === tokenOwnerAddr) {
@@ -267,6 +290,7 @@ function renderActiveNftListing({
   nftTokenId,
   nftTokenActiveListing,
   nftFormContainer,
+  listingEndedEventListener,
 }) {
   if (typeof nftTokenActiveListing === 'undefined') {
     return;
@@ -292,7 +316,7 @@ function renderActiveNftListing({
     nftTokenActiveListing.endDate.toISOString().split('.')[0] + 'Z';
 
   let innerHTML =
-    `<tr><th>Listing Id</th><th>Price</th><th>Start Date</th><th>End Date</th></tr>` +
+    `<tr><th>Listing Id</th><th>Price (ETH)</th><th>Start Date</th><th>End Date</th></tr>` +
     `<tr><td>${listingId}</td><td class="current-price">${price}</td><td>${startDate}</td><td>${endDate}</td></tr>`;
 
   nftActiveListingTable.innerHTML = innerHTML;
@@ -300,25 +324,65 @@ function renderActiveNftListing({
   nftActiveListingContainer.appendChild(nftActiveListingTable);
   nftFormContainer.appendChild(nftActiveListingContainer);
 
-  const currentPriceElement =
-    document.getElementsByClassName('current-price')[0];
-
-  const currentPrice = ethers.BigNumber.from(
-    currentPriceElement.innerHTML.split('.')[0]
+  const currentPriceElement = document.getElementsByClassName('current-price');
+  console.log(
+    `e(outside) = ${JSON.stringify(currentPriceElement, undefined, 2)}`
   );
 
-  currentPriceInterval = setInterval(async () => {
-    const newPrice = await dutchAuctionContract.currentPrice(nftTokenId);
-    console.log(
-      `newPrice = ${newPrice.toString()}, oldPrice = ${currentPrice.toString()}`
-    );
+  const endedEvent = new Event('Ended');
+  currentPriceElement.addEventListener(listingEndedEventListener);
+
+  currentPriceTimer = setTimeout(async function getCurrentPrice() {
+    if (document.getElementsByClassName('current-price').length === 0) {
+      return;
+    }
+
+    let newPrice;
+
+    try {
+      newPrice = await dutchAuctionContract.currentPrice(nftTokenId);
+    } catch (error) {
+      if (
+        typeof error.data !== 'undefined' &&
+        typeof error.data.message !== 'undefined' &&
+        error.data.message.includes('No active auction for NFT token.')
+      ) {
+        // item not currently active, so stop polling for price
+        clearTimeout(currentPriceTimer);
+
+        currentPriceElement.dispatchEvent(endedEvent);
+
+        await renderListedToEndedStateChange(
+          dutchAuctionContract,
+          nftTokenActiveListing,
+          nftTokenId
+        );
+
+        return;
+      }
+    }
+
+    const currentPriceElement =
+      document.getElementsByClassName('current-price')[0];
+
+    const currentPrice = ethers.utils.parseEther(currentPriceElement.innerHTML);
+    console.log(`currentPrice = ${currentPrice}`);
+
+    console.log(`newPrice = ${newPrice}`);
+
     if (!currentPrice.eq(newPrice)) {
       currentPriceElement.innerHTML = ethers.utils.formatEther(newPrice);
     }
-  }, 5000);
+
+    // reset the timer for the next poll
+    currentPriceTimer = setTimeout(
+      getCurrentPrice,
+      currentPricePollingInterval
+    );
+  }, currentPricePollingInterval);
 }
 
-function renderPreviousNftListings(nftTokenListings) {
+export function renderPreviousNftListings(nftTokenListings) {
   const nftPreviousListingsContainer = document.getElementsByClassName(
     'nft-previous-listings-container'
   )[0];
@@ -362,22 +426,4 @@ function renderPreviousNftListings(nftTokenListings) {
 
   nftPreviousListingsTableContainer.appendChild(nftPreviousListingsTable);
   nftPreviousListingsContainer.appendChild(nftPreviousListingsTableContainer);
-}
-
-export function renderNftTokenListings(
-  nftTokenActiveListing,
-  nftTokenListings
-) {
-  console.log(
-    `nftTokenListings = ${JSON.stringify(nftTokenListings, undefined, 2)}`
-  );
-  console.log(
-    `nftTokenActiveListing = ${JSON.stringify(
-      nftTokenActiveListing,
-      undefined,
-      2
-    )}`
-  );
-
-  renderPreviousNftListings(nftTokenListings);
 }

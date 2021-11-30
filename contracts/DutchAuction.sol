@@ -10,8 +10,8 @@ import "./Tulip.sol";
 contract DutchAuction {
     using Counters for Counters.Counter;
 
-    event List(uint indexed tokenId, uint indexed auctionId, uint indexed amount);
     event Buy(uint indexed tokenId, uint indexed auctionId, address indexed buyer, uint amount);
+    event List(uint indexed tokenId, uint indexed auctionId, uint indexed amount);
 
     address public nftAddress;
 
@@ -65,17 +65,33 @@ contract DutchAuction {
         emit List(tokenId, auctionId, _startPrice);
     }
 
-    function currentPrice(uint tokenId) public view returns(uint) {
+    function currentPrice(uint tokenId) public view isActive(tokenId) returns(uint) {
         uint auctionId = numAuctionsForNftToken(tokenId) - 1;
-        require(auctionId >= 0, "NFT token never listed");
 
         uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startDate;
         uint reduction = auctions[tokenId][auctionId].priceReductionRate * timeElapsed;
         uint startPrice = auctions[tokenId][auctionId].startPrice;
 
+
+        console.log("block.timestamp =");
+        console.logUint(block.timestamp);
+        console.log("auctions[tokenId][auctionId].startDate =");
+        console.logUint(auctions[tokenId][auctionId].startDate);
+        console.log("timeElapsed =");
+        console.logUint(timeElapsed);
+        console.log("reduction =");
+        console.logUint(reduction);
+        console.log("startPrice =");
+        console.logUint(startPrice);
+
+
         if (reduction > startPrice) {
+            console.log("reduction is greater than start price: returning 0");
             return 0;
         }
+
+        console.log("startPrice - reduction =");
+        console.logUint(startPrice - reduction);
 
         return startPrice - reduction;
     } 
@@ -103,6 +119,8 @@ contract DutchAuction {
         payable(tulip.ownerOf(tokenId)).transfer(msg.value);
         tulip.safeTransferFrom(tulip.ownerOf(tokenId), msg.sender, tokenId);
 
+        console.log("Auction has ended due to buy");
+
         emit Buy(tokenId, auctionId, msg.sender, msg.value);
     }
 
@@ -117,7 +135,6 @@ contract DutchAuction {
 
         console.log("block.number:");
         console.logUint(block.number);
-
         console.log("sold:");
         console.logBool(auctions[tokenId][auctionId].sold);
         console.log("block.timestamp:");
@@ -125,7 +142,13 @@ contract DutchAuction {
         console.log("auctions[tokenId][auctionId].endDate:");
         console.logUint(auctions[tokenId][auctionId].endDate);
 
-        return !auctions[tokenId][auctionId].sold && block.timestamp < auctions[tokenId][auctionId].endDate;
+        bool ended = auctions[tokenId][auctionId].sold || block.timestamp >= auctions[tokenId][auctionId].endDate;
+
+        if (ended != auctions[tokenId][auctionId].sold) {
+            console.log("Auction has ended due to expiration");
+        }
+
+        return ended;
     }
 
     modifier isTokenOwner(uint tokenId, string memory errorMessage) {
