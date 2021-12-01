@@ -65,7 +65,11 @@ contract DutchAuction {
         emit List(tokenId, auctionId, _startPrice);
     }
 
-    function currentPrice(uint tokenId) public view isActive(tokenId) returns(uint) {
+    function currentPrice(uint tokenId) public view returns(uint) {
+        if (! isListingActive(tokenId)) {
+            return 0;
+        }
+
         uint auctionId = numAuctionsForNftToken(tokenId) - 1;
 
         uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startDate;

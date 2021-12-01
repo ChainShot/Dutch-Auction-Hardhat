@@ -16,7 +16,7 @@ body {
     text-align: center;
   }
 
-  .nft-attributes {
+  #nft-attributes {
     margin-left: 20px;
   }
 
@@ -34,7 +34,7 @@ body {
     text-align: left;
   }
 
-  .nft-image-container {
+  #nft-image-container {
     margin: 10px auto;
     padding-bottom: 20px;
     border-bottom: 1px solid #999;
@@ -51,7 +51,7 @@ body {
     }
   }
 
-  .nft-form-container {
+  #nft-listing-container {
     .active-listing-header {
       width: 50%;
       margin: auto;
@@ -73,22 +73,26 @@ body {
       width: 50%;
       cursor: pointer;
 
-      &.disabled-buy-button {
+      &.disabled-button {
         background-color: #aaa;
         cursor: not-allowed;
       }
     }
 
-    .not-enough-funds-msg {
+    #not-enough-funds-msg {
       margin: auto;
       width: 50%;
     }
 
-    .token-listing-form-table {
+    #token-listing-form-table {
       margin-bottom: 20px;
+
+      th {
+        width: 35%;
+      }
     }
 
-    .nft-active-listing-table-container {
+    #nft-active-listing-table-container {
       margin-bottom: 20px;
 
       h2 {
@@ -96,7 +100,7 @@ body {
         border-bottom: 1px solid #aaa;
       }
 
-      .nft-active-listing-table {
+      #nft-active-listing-table {
         width: 100%;
 
         th,
@@ -108,7 +112,7 @@ body {
   }
 }
 
-.nft-previous-listings-container {
+#nft-previous-listings-container {
   margin: 20px;
   width: 50%;
   padding: 40px;
@@ -123,7 +127,13 @@ body {
     margin: auto;
   }
 
-  .nft-previous-listings-table {
+  h3 {
+    margin: auto;
+    width: 50%;
+    text-align: center;
+  }
+
+  #nft-previous-listings-table {
     width: 100%;
 
     th,
