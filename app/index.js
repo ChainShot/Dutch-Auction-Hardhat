@@ -10,7 +10,7 @@ import {
 import {
   render,
   renderApprovalToListingStateChange,
-  renderListingToBoughtStateChange,
+  renderListedToEndedStateChange,
   renderListingToListedStateChange,
   unrenderAll,
 } from './render';
@@ -27,7 +27,7 @@ function registerContractEventListeners() {
 
   nftContract.on('Approval', renderApprovalToListingStateChange);
   dutchAuctionContract.on('List', renderListingToListedStateChange);
-  dutchAuctionContract.on('Buy', renderListingToBoughtStateChange);
+  dutchAuctionContract.on('Buy', renderListedToEndedStateChange);
 }
 
 function unregisterContractEventListeners() {
@@ -36,7 +36,7 @@ function unregisterContractEventListeners() {
 
   nftContract.off('Approval', renderApprovalToListingStateChange);
   dutchAuctionContract.off('List', renderListingToListedStateChange);
-  dutchAuctionContract.off('Buy', renderListingToBoughtStateChange);
+  dutchAuctionContract.off('Buy', renderListedToEndedStateChange);
 }
 
 ////////////////////////////////////////////
@@ -51,7 +51,6 @@ async function handleAccountsChanged(accounts) {
   // if metamask account changes unrender everything and then reload the page
   unrenderAll();
 
-  // TODO set accounts[0] as signer of contracts via signer.connect();
   accounts[0];
 
   await main(DUTCH_AUCTION_CONTRACT_ADDR, NFT_TOKEN_METADATA_URI, NFT_TOKEN_ID);

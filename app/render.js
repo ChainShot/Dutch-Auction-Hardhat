@@ -16,7 +16,7 @@ import {
 
 const CURRENT_PRICE_POLLING_INTERVAL = 5000;
 
-let currentPriceTimers = [];
+let currentPriceTimer;
 
 const nftName = document.getElementById('nft-name');
 const nftDescription = document.getElementById('nft-description');
@@ -101,6 +101,10 @@ function renderNftToken() {
 }
 
 function renderNftTokenApprovalButton() {
+  if (document.getElementById('approve-button')) {
+    return;
+  }
+
   const nftContract = getNftContract();
   const dutchAuctionContractAddr = getDutchAuctionContractAddr();
   const nftTokenId = getNftTokenId();
@@ -177,7 +181,7 @@ async function renderNftListingContainerForBuyer() {
     return;
   }
 
-  renderActiveNftListing();
+  await renderActiveNftListing();
   renderNftTokenBuyButton();
 }
 
@@ -210,7 +214,7 @@ function unrenderImageContainer() {
   nftImageContainer.replaceChildren();
 }
 
-function unrenderListingContainer() {
+function unrenderNftListingContainer() {
   nftListingContainer.replaceChildren();
 }
 
@@ -222,24 +226,23 @@ function unrenderNft() {
   unrenderNftMetadata();
   unrenderNftTokenListingApprovalButton();
   unrenderImageContainer();
-  unrenderListingContainer();
+  unrenderNftListingContainer();
 }
 
 export function unrenderAll() {
-  // clear all timers
-  clearCurrentPriceTimers();
+  clearCurrentPriceTimer();
 
   unrenderNft();
   unrenderNftPreviousListingsContainer();
 }
 
-function clearCurrentPriceTimers() {
-  currentPriceTimers.forEach((currentPriceTimer) => {
-    clearTimeout(currentPriceTimer);
-  });
+function clearCurrentPriceTimer() {
+  clearTimeout(currentPriceTimer);
+
+  currentPriceTimer = undefined;
 }
 
-function renderNftTokenListingForm() {
+async function renderNftTokenListingForm() {
   const dutchAuctionContract = getDutchAuctionContract();
   const nftTokenId = getNftTokenId();
 
@@ -255,7 +258,7 @@ function renderNftTokenListingForm() {
     <tr>
       <th>Reduction rate</th>
       <td><input id="reduction-rate" type="text" name="reductionRate"></td>
-      <td><strong>Finney per ms</strong></td>
+      <td><strong>Finney per second <a href="https://ethdocs.org/en/latest/ether.html">(?)</a></strong></td>
     </tr>
     <tr>
       <th>Ends in</th>
@@ -270,7 +273,7 @@ function renderNftTokenListingForm() {
   nftListButton.setAttribute('id', 'list-button');
   nftListButton.classList.add('button');
 
-  nftListButton.addEventListener('click', () => {
+  nftListButton.addEventListener('click', async () => {
     const startingPrice = document.getElementById('starting-price').value;
     const reductionRate = document.getElementById('reduction-rate').value;
     const durationValue = document.getElementById('duration').value;
@@ -298,18 +301,8 @@ function renderNftTokenListingForm() {
   nftListingContainer.appendChild(nftListButton);
 }
 
-function renderListedToEndedStateChange() {
-  clearCurrentPriceTimers();
-
-  unrenderListingContainer();
-  unrenderNftPreviousListingsContainer();
-
-  renderNftListingContainer();
-  renderPreviousNftListings();
-}
-
 async function renderCurrentPrice() {
-  clearCurrentPriceTimers();
+  clearCurrentPriceTimer();
 
   const currentPriceElement = document.getElementById('current-price');
 
@@ -330,8 +323,9 @@ async function renderCurrentPrice() {
 
   currentPriceElement.innerHTML = ethers.utils.formatEther(currentPrice);
 
-  currentPriceTimers.push(
-    setTimeout(renderCurrentPrice, CURRENT_PRICE_POLLING_INTERVAL)
+  currentPriceTimer = setTimeout(
+    renderCurrentPrice,
+    CURRENT_PRICE_POLLING_INTERVAL
   );
 }
 
@@ -377,16 +371,24 @@ async function renderActiveNftListing() {
 export function renderApprovalToListingStateChange() {
   unrenderNftTokenListingApprovalButton();
 
-  renderNftTokenListingForm();
+  renderNftListingContainer();
 }
 
 export function renderListingToListedStateChange() {
-  unrenderListingContainer();
+  unrenderNftListingContainer();
 
-  renderActiveNftListing();
+  renderNftListingContainer();
 }
 
-export function renderListingToBoughtStateChange() {}
+export function renderListedToEndedStateChange() {
+  clearCurrentPriceTimer();
+
+  unrenderNftListingContainer();
+  unrenderNftPreviousListingsContainer();
+
+  renderNftListingContainer();
+  renderPreviousNftListings();
+}
 
 export async function render() {
   renderNftToken();

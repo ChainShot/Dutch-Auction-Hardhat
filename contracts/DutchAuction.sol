@@ -3,8 +3,6 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import "hardhat/console.sol";
-
 import "./Tulip.sol";
 
 contract DutchAuction {
@@ -55,11 +53,6 @@ contract DutchAuction {
             sold: false
         });
 
-        console.log("block.timestamp:");
-        console.logUint(block.timestamp);
-        console.log("endDate:");
-        console.logUint(block.timestamp + _endDate * 1 minutes);
-
         _numAuctionsForNftToken[tokenId].increment();
 
         emit List(tokenId, auctionId, _startPrice);
@@ -75,27 +68,6 @@ contract DutchAuction {
         uint timeElapsed = block.timestamp - auctions[tokenId][auctionId].startDate;
         uint reduction = auctions[tokenId][auctionId].priceReductionRate * timeElapsed;
         uint startPrice = auctions[tokenId][auctionId].startPrice;
-
-
-        console.log("block.timestamp =");
-        console.logUint(block.timestamp);
-        console.log("auctions[tokenId][auctionId].startDate =");
-        console.logUint(auctions[tokenId][auctionId].startDate);
-        console.log("timeElapsed =");
-        console.logUint(timeElapsed);
-        console.log("reduction =");
-        console.logUint(reduction);
-        console.log("startPrice =");
-        console.logUint(startPrice);
-
-
-        if (reduction > startPrice) {
-            console.log("reduction is greater than start price: returning 0");
-            return 0;
-        }
-
-        console.log("startPrice - reduction =");
-        console.logUint(startPrice - reduction);
 
         return startPrice - reduction;
     } 
@@ -123,8 +95,6 @@ contract DutchAuction {
         payable(tulip.ownerOf(tokenId)).transfer(msg.value);
         tulip.safeTransferFrom(tulip.ownerOf(tokenId), msg.sender, tokenId);
 
-        console.log("Auction has ended due to buy");
-
         emit Buy(tokenId, auctionId, msg.sender, msg.value);
     }
 
@@ -137,22 +107,7 @@ contract DutchAuction {
 
         uint auctionId = auctionIndex - 1;
 
-        console.log("block.number:");
-        console.logUint(block.number);
-        console.log("sold:");
-        console.logBool(auctions[tokenId][auctionId].sold);
-        console.log("block.timestamp:");
-        console.logUint(block.timestamp);
-        console.log("auctions[tokenId][auctionId].endDate:");
-        console.logUint(auctions[tokenId][auctionId].endDate);
-
         bool ended = auctions[tokenId][auctionId].sold || block.timestamp >= auctions[tokenId][auctionId].endDate;
-        console.log("DutchAuction.sol:isListingActive(): ended");
-        console.logBool(ended);
-
-        if (ended && ended != auctions[tokenId][auctionId].sold) {
-            console.log("Auction has ended due to expiration");
-        }
 
         return !ended;
     }
