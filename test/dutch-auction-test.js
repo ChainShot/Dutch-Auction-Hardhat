@@ -47,6 +47,31 @@ describe('DutchAuction', function () {
     });
   });
 
+  describe(`numAuctionsForNftToken()`, function () {
+    it(`should return the correct number of auction listings for a given token id`, async function () {
+      let dutchAuctionContract = await deployDutchAuction();
+
+      expect((await dutchAuctionContract.numAuctionsForNftToken(0n)).eq(0n)).to
+        .be.true;
+    });
+  });
+
+  describe(`isListingActive()`, function () {
+    it(`should return false for a non-active listing`, async function () {
+      let dutchAuctionContract = await deployDutchAuction();
+
+      expect(await dutchAuctionContract.isListingActive(0n)).to.be.false;
+    });
+  });
+
+  describe(`currentPrice()`, function () {
+    it(`should return 0 for a non-active listing`, async function () {
+      let dutchAuctionContract = await deployDutchAuction();
+
+      expect((await dutchAuctionContract.currentPrice(0n)).eq(0n)).to.be.true;
+    });
+  });
+
   describe('list', function () {
     let dutchAuctionContract;
     let nftContract;
@@ -218,9 +243,6 @@ describe('DutchAuction', function () {
     });
 
     it('should fail buying an NFT token listing when price is not met', async function () {
-      // connect to the Dutch Auction contract as the token owner
-      dutchAuctionContract = await dutchAuctionContract.connect(tokenOwner);
-
       // connect to the Dutch Auction contract as a buyer
       dutchAuctionContract = await dutchAuctionContract.connect(tokenBuyer);
 
